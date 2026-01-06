@@ -13,15 +13,19 @@ export const formatTimer = (totalSeconds: number): string => {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
 
-export const getAttributedDate = (startDate: Date): string => {
-  return startDate.toISOString().split('T')[0];
+export const getAttributedDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 export const getPeriodDates = (refDate: Date, mode: 'week' | 'month'): string[] => {
   const dates: string[] = [];
   if (mode === 'week') {
     const d = new Date(refDate);
-    const day = d.getDay();
+    const day = d.getDay(); // 0 (Sun) to 6 (Sat)
+    // Sunday start: Move back by 'day' number of days
     const diff = d.getDate() - day;
     const start = new Date(d.setDate(diff));
     start.setHours(0, 0, 0, 0);
@@ -29,7 +33,7 @@ export const getPeriodDates = (refDate: Date, mode: 'week' | 'month'): string[] 
     for (let i = 0; i < 7; i++) {
       const next = new Date(start);
       next.setDate(start.getDate() + i);
-      dates.push(next.toISOString().split('T')[0]);
+      dates.push(getAttributedDate(next));
     }
   } else {
     const year = refDate.getFullYear();
@@ -38,7 +42,7 @@ export const getPeriodDates = (refDate: Date, mode: 'week' | 'month'): string[] 
     
     for (let d = 1; d <= lastDay.getDate(); d++) {
       const date = new Date(year, month, d);
-      dates.push(date.toISOString().split('T')[0]);
+      dates.push(getAttributedDate(date));
     }
   }
   return dates;
@@ -51,20 +55,18 @@ export const getCalendarGrid = (refDate: Date) => {
   const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
   
   const grid = [];
-  // Adjust for Monday start: (firstDayOfMonth + 6) % 7
-  const startOffset = (firstDayOfMonth + 6) % 7; 
+  // Sunday start offset is just the day index (Sun=0)
+  const startOffset = firstDayOfMonth; 
 
-  // Empty slots
   for (let i = 0; i < startOffset; i++) {
     grid.push(null);
   }
 
-  // Days
   for (let d = 1; d <= lastDayOfMonth; d++) {
     const date = new Date(year, month, d);
     grid.push({
       day: d,
-      date: date.toISOString().split('T')[0]
+      date: getAttributedDate(date)
     });
   }
 
@@ -90,5 +92,6 @@ export const getPeriodLabel = (refDate: Date, mode: 'week' | 'month'): string =>
 
 export const getDayName = (dateStr: string) => {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  return days[new Date(dateStr).getDay()];
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return days[new Date(y, m - 1, d).getDay()];
 };

@@ -1,6 +1,7 @@
 
-import React from 'react';
-import { X, LayoutDashboard, History, Settings, LogOut } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, LayoutDashboard, History, Settings, LogOut, Edit3, Check, Loader2 } from 'lucide-react';
+import { Profile } from '../types';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -8,19 +9,51 @@ interface SidebarProps {
   currentView: 'dashboard' | 'logs' | 'settings';
   onNavigate: (view: 'dashboard' | 'logs' | 'settings') => void;
   user: any;
+  profile: Profile | null;
   onLogout: () => void;
+  onUpdateNickname: (name: string) => Promise<void>;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavigate, user, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ 
+  isOpen, 
+  onClose, 
+  currentView, 
+  onNavigate, 
+  user, 
+  profile,
+  onLogout,
+  onUpdateNickname
+}) => {
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const [nickname, setNickname] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setNickname(profile.full_name || '');
+    }
+  }, [profile]);
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'logs', label: 'Activity Logs', icon: History },
     { id: 'settings', label: 'Habit Settings', icon: Settings },
   ] as const;
 
-  const userInitial = user?.user_metadata?.full_name?.[0] || user?.email?.[0] || 'U';
-  const userName = user?.user_metadata?.full_name || 'Active User';
-  const userEmail = user?.email || '';
+  const handleSaveNickname = async () => {
+    if (!nickname.trim()) return;
+    setSaving(true);
+    try {
+      await onUpdateNickname(nickname.trim());
+      setIsEditingNickname(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const userInitial = (nickname?.[0] || user?.email?.[0] || 'U').toUpperCase();
 
   return (
     <>
@@ -42,7 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
               </div>
               <div>
                 <h2 className="font-bold text-lg">BeConsistent</h2>
-                <p className="text-xs text-slate-500">v1.0.0</p>
+                <p className="text-xs text-slate-500">v1.1.0</p>
               </div>
             </div>
             <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all">
@@ -75,23 +108,53 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
           </nav>
 
           <div className="pt-6 border-t border-slate-800 space-y-4">
-             <div className="px-4 py-3 bg-slate-800/50 rounded-2xl border border-slate-800 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white">
-                  {userInitial.toUpperCase()}
+             <div className="px-4 py-4 bg-slate-800/50 rounded-2xl border border-slate-800">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold text-white shadow-lg">
+                    {userInitial}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {isEditingNickname ? (
+                      <div className="flex gap-1">
+                        <input 
+                          autoFocus
+                          value={nickname}
+                          onChange={(e) => setNickname(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm text-white outline-none focus:ring-1 focus:ring-indigo-500"
+                          placeholder="Your nickname"
+                        />
+                        <button 
+                          onClick={handleSaveNickname}
+                          disabled={saving}
+                          className="p-1 text-emerald-500 hover:bg-emerald-500/10 rounded-lg"
+                        >
+                          {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold truncate text-white">{nickname || 'Set Nickname'}</p>
+                        <button 
+                          onClick={() => setIsEditingNickname(true)}
+                          className="p-1 text-slate-500 hover:text-indigo-400 transition-colors"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-slate-500 truncate">{user?.email}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">{userName}</p>
-                  <p className="text-[10px] text-slate-500 truncate">{userEmail}</p>
-                </div>
+                
                 <button 
                   onClick={onLogout}
-                  className="text-slate-500 hover:text-red-400 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-900/50 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all text-xs font-bold"
                 >
-                  <LogOut size={16} />
+                  <LogOut size={14} /> Logout Session
                 </button>
              </div>
              <p className="text-[10px] text-center text-slate-600 uppercase tracking-widest font-bold">
-               Reflect on your progress
+               Consistency is key
              </p>
           </div>
         </div>

@@ -24,14 +24,12 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
   onViewChange,
   filteredHabitName
 }) => {
-  // Common calculations
   const totalPeriodSeconds = useMemo(() => {
     return logs
       .filter(log => activePeriodDates.includes(log.attributed_date))
       .reduce((sum, log) => sum + log.duration_seconds, 0);
   }, [logs, activePeriodDates]);
 
-  // Week View Data
   const weekChartData = useMemo(() => {
     if (viewMode !== 'week') return [];
     return activePeriodDates.map(date => {
@@ -46,13 +44,11 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
     });
   }, [logs, activePeriodDates, viewMode]);
 
-  // Month View Calendar Grid
   const calendarGrid = useMemo(() => {
     if (viewMode !== 'month') return [];
     return getCalendarGrid(referenceDate);
   }, [referenceDate, viewMode]);
 
-  // Max seconds for bubble scaling in month view
   const maxDaySeconds = useMemo(() => {
     if (viewMode !== 'month') return 0;
     let max = 0;
@@ -61,7 +57,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       const total = dayLogs.reduce((sum, log) => sum + log.duration_seconds, 0);
       if (total > max) max = total;
     });
-    return max || 1; // Avoid divide by zero
+    return max || 1;
   }, [logs, activePeriodDates, viewMode]);
 
   const CustomTooltip = ({ active, payload }: any) => {
@@ -79,7 +75,6 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
 
   return (
     <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-800">
-      {/* Navigation Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h3 className="text-slate-400 text-sm font-medium uppercase tracking-wider mb-1 flex items-center gap-2">
@@ -124,7 +119,6 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
         </div>
       </div>
 
-      {/* Week View Content */}
       {viewMode === 'week' && (
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
@@ -151,13 +145,10 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
         </div>
       )}
 
-      {/* Month View (Bubble Calendar) */}
       {viewMode === 'month' && (
         <div className="w-full">
-          {/* Calendar Grid */}
           <div className="grid grid-cols-7 gap-y-4 text-center">
-            {/* Day Headers */}
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
               <div key={d} className="text-[10px] uppercase font-bold text-slate-600 mb-2">
                 {d}
               </div>
@@ -189,14 +180,6 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                   <span className={`relative z-10 text-sm font-medium ${hasActivity ? 'text-white' : 'text-slate-500'}`}>
                     {item.day}
                   </span>
-                  
-                  {hasActivity && (
-                    <div className="absolute inset-0 group cursor-pointer z-20">
-                      <div className="hidden group-hover:flex absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-[10px] text-white rounded shadow-lg whitespace-nowrap z-50">
-                        {formatDuration(daySeconds)}
-                      </div>
-                    </div>
-                  )}
                 </div>
               );
             })}

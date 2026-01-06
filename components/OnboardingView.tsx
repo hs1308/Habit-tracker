@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Check, Target, Sparkles, LayoutGrid, Loader2, AlertCircle, Copy, CheckCircle2, ShieldCheck, Database } from 'lucide-react';
+import { Sparkles, Loader2, AlertCircle, Copy, CheckCircle2, Database } from 'lucide-react';
 
 interface OnboardingViewProps {
   onComplete: (habits: { name: string; color: string; icon: string }[]) => Promise<void>;
@@ -15,14 +15,8 @@ const PRESET_SUGGESTIONS = [
   { name: 'Music', color: 'bg-pink-500', icon: 'Music' },
 ];
 
-const COLORS = [
-  'bg-indigo-500', 'bg-emerald-500', 'bg-purple-500', 
-  'bg-orange-500', 'bg-blue-500', 'bg-red-500', 
-  'bg-pink-500', 'bg-amber-500'
-];
-
-const SETUP_SQL = `-- 1. CREATE PROFILES TABLE (Mirrors auth.users)
-create table public.profiles (
+const SETUP_SQL = `-- 1. TABLES
+create table if not exists public.profiles (
   id uuid references auth.users on delete cascade primary key,
   full_name text,
   avatar_url text,
@@ -30,62 +24,75 @@ create table public.profiles (
   updated_at timestamp with time zone default now()
 );
 
--- 2. CREATE HABITS TABLE
-create table public.habits (
+create table if not exists public.habits (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users on delete cascade not null,
   name text not null,
+  habit_name text,
+  user_name text,
+  log_created_date date,
   icon text,
   color text,
   created_at timestamp with time zone default now(),
   deleted_at timestamp with time zone
 );
 
--- 3. CREATE HABIT_LOGS TABLE
-create table public.habit_logs (
+create table if not exists public.habit_logs (
   id uuid primary key default gen_random_uuid(),
   habit_id uuid references public.habits on delete cascade not null,
   user_id uuid references auth.users on delete cascade not null,
+  habit_name text,
+  user_name text,
+  log_created_date date,
   start_time timestamp with time zone not null,
   end_time timestamp with time zone not null,
   duration_seconds integer not null,
   attributed_date date not null
 );
 
--- 4. ENABLE RLS (Security)
+-- 2. DENORMALIZATION SYNC TRIGGER
+-- This function propagates profile name changes to habits and logs automatically
+CREATE OR REPLACE FUNCTION public.sync_user_name_to_denormalized_tables()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (OLD.full_name IS DISTINCT FROM NEW.full_name) THEN
+    UPDATE public.habits SET user_name = NEW.full_name WHERE user_id = NEW.id;
+    UPDATE public.habit_logs SET user_name = NEW.full_name WHERE user_id = NEW.id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Bind trigger to profiles table
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'on_profile_name_update') THEN
+    CREATE TRIGGER on_profile_name_update
+      AFTER UPDATE OF full_name ON public.profiles
+      FOR EACH ROW EXECUTE PROCEDURE public.sync_user_name_to_denormalized_tables();
+  END IF;
+END $$;
+
+-- 3. POLICIES (Idempotent)
 alter table public.profiles enable row level security;
 alter table public.habits enable row level security;
 alter table public.habit_logs enable row level security;
 
--- 5. CREATE SECURITY POLICIES
-create policy "Users can view own profile" on public.profiles for select using (auth.uid() = id);
-create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
-create policy "Users manage own habits" on public.habits for all using (auth.uid() = user_id);
-create policy "Users manage own logs" on public.habit_logs for all using (auth.uid() = user_id);
-
--- 6. AUTOMATIC PROFILE CREATION TRIGGER
-create function public.handle_new_user()
-returns trigger as $$
+do $$ 
 begin
-  insert into public.profiles (id, full_name, avatar_url)
-  values (new.id, new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'avatar_url');
-  return new;
-end;
-$$ language plpgsql security definer;
-
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
-
--- 7. PERFORMANCE INDEXES
-create index idx_habits_user_id on public.habits(user_id);
-create index idx_habit_logs_user_id on public.habit_logs(user_id);
-create index idx_habit_logs_habit_id on public.habit_logs(habit_id);`;
+  drop policy if exists "Users manage own habits" on public.habits;
+  drop policy if exists "Users manage own logs" on public.habit_logs;
+  drop policy if exists "Users view own profile" on public.profiles;
+  drop policy if exists "Users update own profile" on public.profiles;
+  
+  create policy "Users manage own habits" on public.habits for all using (auth.uid() = user_id);
+  create policy "Users manage own logs" on public.habit_logs for all using (auth.uid() = user_id);
+  create policy "Users view own profile" on public.profiles for select using (auth.uid() = id);
+  create policy "Users update own profile" on public.profiles for update using (auth.uid() = id);
+end $$;`;
 
 const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) => {
   const [selectedPresets, setSelectedPresets] = useState<string[]>([]);
-  const [customName, setCustomName] = useState('');
-  const [customColor, setCustomColor] = useState(COLORS[0]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -103,36 +110,18 @@ const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) => {
   };
 
   const handleFinish = async () => {
+    if (selectedPresets.length === 0) {
+      setError("Please select at least one habit to begin.");
+      return;
+    }
     setError(null);
     setLoading(true);
-    
-    const finalHabits = PRESET_SUGGESTIONS
-      .filter(p => selectedPresets.includes(p.name))
-      .map(p => ({ ...p }));
-
-    if (customName.trim()) {
-      finalHabits.push({
-        name: customName.trim(),
-        color: customColor,
-        icon: 'Target'
-      });
-    }
-
+    const finalHabits = PRESET_SUGGESTIONS.filter(p => selectedPresets.includes(p.name));
     try {
-      if (finalHabits.length > 0) {
-        await onComplete(finalHabits);
-      } else {
-        setError("Select at least one habit.");
-        setLoading(false);
-      }
+      await onComplete(finalHabits);
     } catch (err: any) {
       console.error("Onboarding failed:", err);
-      const msg = err.message || "";
-      if (msg.includes("relation") || msg.includes("does not exist")) {
-        setError("Database tables not found. Run the SQL script to initialize the global schema.");
-      } else {
-        setError(err.message || "Failed to save habits.");
-      }
+      setError("Database sync required. Run the SQL migration script below.");
       setLoading(false);
     }
   };
@@ -144,21 +133,19 @@ const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) => {
           <div className="w-16 h-16 bg-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-indigo-600/20 rotate-12">
             <Sparkles className="text-white" size={32} />
           </div>
-          <h1 className="text-4xl font-extrabold text-white mb-3 tracking-tight">BeConsistent</h1>
-          <p className="text-slate-400 text-lg">Foundation for your new habits.</p>
+          <h1 className="text-4xl font-extrabold text-white mb-3 tracking-tight italic">Setup Habits</h1>
+          <p className="text-slate-400 text-lg font-medium">Choose your starting focus areas.</p>
         </div>
 
         <div className="space-y-8">
           {error && (
-            <div className="p-6 bg-amber-500/10 border border-amber-500/20 rounded-[2.5rem] space-y-4 animate-in slide-in-from-top-4 duration-300">
+            <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-[2rem] space-y-4 animate-in slide-in-from-top-4 duration-300">
               <div className="flex items-start gap-4">
-                <div className="p-2 bg-amber-500/20 rounded-xl">
-                  <Database className="text-amber-500" size={24} />
-                </div>
+                <AlertCircle className="text-red-500 shrink-0 mt-1" size={24} />
                 <div>
-                  <p className="font-bold text-white">Global Schema Required</p>
+                  <p className="font-bold text-white">Action Required</p>
                   <p className="text-xs text-slate-400 leading-relaxed mt-1">
-                    To support 100s of users worldwide with secure isolation, you must initialize the backend tables.
+                    To keep your nickname in sync across historical logs, you must add the database trigger.
                   </p>
                 </div>
               </div>
@@ -166,30 +153,22 @@ const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) => {
               <div className="bg-slate-950/80 rounded-2xl p-4 border border-slate-800">
                 <div className="flex justify-between items-center mb-3">
                   <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                    <ShieldCheck size={12} className="text-indigo-400" /> Production-Ready SQL
+                    <Database size={12} className="text-indigo-400" /> SYNC TRIGGER SQL
                   </div>
                   <button 
                     onClick={copySql}
                     className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600/10 hover:bg-indigo-600/20 text-[10px] font-bold text-indigo-400 rounded-lg transition-all"
                   >
-                    {copied ? <><CheckCircle2 size={12} /> Copied!</> : <><Copy size={12} /> Copy Script</>}
+                    {copied ? <CheckCircle2 size={12} /> : <Database size={12} />} {copied ? 'Copied' : 'Copy'}
                   </button>
                 </div>
-                <pre className="text-[10px] font-mono text-slate-500 overflow-x-auto max-h-40 whitespace-pre scrollbar-thin">
+                <pre className="text-[10px] font-mono text-slate-500 overflow-x-auto max-h-32 scrollbar-thin">
                   {SETUP_SQL}
                 </pre>
-              </div>
-              
-              <div className="flex items-center gap-3 px-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                <p className="text-[11px] text-slate-400 font-medium italic">
-                  Run this in Supabase SQL Editor to enable worldwide access.
-                </p>
               </div>
             </div>
           )}
 
-          {/* Preset Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {PRESET_SUGGESTIONS.map((preset) => {
               const isSelected = selectedPresets.includes(preset.name);
@@ -208,11 +187,6 @@ const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) => {
                     <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-white' : preset.color}`} />
                   </div>
                   <p className={`font-bold ${isSelected ? 'text-white' : 'text-slate-300'}`}>{preset.name}</p>
-                  {isSelected && (
-                    <div className="absolute top-3 right-3 text-white">
-                      <Check size={16} strokeWidth={3} />
-                    </div>
-                  )}
                 </button>
               );
             })}
@@ -220,13 +194,13 @@ const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) => {
 
           <button 
             onClick={handleFinish}
-            disabled={loading || (selectedPresets.length === 0 && !customName.trim())}
-            className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white font-bold text-lg rounded-[2rem] shadow-xl shadow-indigo-600/30 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+            disabled={loading}
+            className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-black text-lg rounded-[2rem] shadow-xl shadow-indigo-600/30 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
           >
             {loading ? (
               <>Syncing Database... <Loader2 className="animate-spin" size={20} /></>
             ) : (
-              <>Launch Dashboard <LayoutGrid size={20} /></>
+              <>Start Consistency Track</>
             )}
           </button>
         </div>
