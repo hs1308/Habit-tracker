@@ -156,7 +156,7 @@ const AuthView: React.FC = () => {
                 <div className="space-y-4">
                   <div className="flex gap-3">
                     <div className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center shrink-0 text-indigo-400 text-[10px] font-bold">1</div>
-                    <p className="text-[10px] text-slate-500">Go to <strong>Auth > URL Configuration</strong> in Supabase.</p>
+                    <p className="text-[10px] text-slate-500">Go to <strong>Auth &gt; URL Configuration</strong> in Supabase.</p>
                   </div>
                   <div className="flex gap-3">
                     <div className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center shrink-0 text-indigo-400 text-[10px] font-bold">2</div>
