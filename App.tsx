@@ -1,4 +1,3 @@
-
 import './style.css';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Menu, Play, History, Plus, AlertCircle } from 'lucide-react';
@@ -93,7 +92,6 @@ const App: React.FC = () => {
     return logs.filter(log => log.habit_id === selectedHabitId);
   }, [logs, selectedHabitId]);
 
-  // Robust nickname handling for Google and Anonymous users
   const currentUserNickname = useMemo(() => {
     if (profile?.full_name) return profile.full_name;
     if (session?.user?.email) return session.user.email.split('@')[0];
@@ -102,7 +100,7 @@ const App: React.FC = () => {
 
   const handleOnboardingComplete = async (newHabitConfigs: { name: string; color: string; icon: string }[]) => {
     if (!session?.user || !supabase) return;
-    const userId = session.user.id; // Capture ID explicitly
+    const userId = session.user.id;
     const newHabitsToInsert = newHabitConfigs.map(config => ({
       name: config.name,
       habit_name: config.name,
@@ -166,10 +164,12 @@ const App: React.FC = () => {
     };
 
     if (logId) {
-      await supabase.from('habit_logs').update(payload).eq('id', logId);
+      const { error } = await supabase.from('habit_logs').update(payload).eq('id', logId);
+      if (error) console.error("Error updating log:", error);
     } else {
       payload.user_id = userId;
-      await supabase.from('habit_logs').insert([payload]);
+      const { error } = await supabase.from('habit_logs').insert([payload]);
+      if (error) console.error("Error inserting log:", error);
     }
     await fetchUserData();
     setShowRecordModal(false);
@@ -224,7 +224,6 @@ const App: React.FC = () => {
 
   if (!session) return <AuthView />;
 
-  // Initial Load prevents Onboarding screen from flashing for existing users
   if (isInitialLoad) return (
     <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
@@ -250,8 +249,11 @@ const App: React.FC = () => {
         onLogout={handleLogout}
         onUpdateNickname={updateNickname}
       />
-      <header className="py-10 flex justify-between items-center sticky top-0 bg-[#0f172a]/90 backdrop-blur-xl z-40 border-b border-white/5">
-        <h1 className="text-4xl font-black text-white italic">BeConsistent</h1>
+      <header className="py-5 flex justify-between items-center sticky top-0 bg-[#0f172a]/90 backdrop-blur-xl z-40 border-b border-white/5">
+        <div className="max-w-md w-full flex flex-col items-start">
+          <h1 className="text-3xl font-black text-white">Be Consistent</h1>
+          <p className="text-[10px] text-slate-500 font-medium italic">Do some action everyday, however small</p>
+        </div>
         <button onClick={() => setIsSidebarOpen(true)} className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center">
           <Menu size={24} className="text-slate-400" />
         </button>
@@ -262,22 +264,23 @@ const App: React.FC = () => {
           <section className="grid grid-cols-2 gap-5 pt-4">
             <button 
               onClick={() => setIsTimerPickerOpen(true)} 
-              className="flex flex-col items-center justify-center p-8 bg-indigo-600 rounded-[2.5rem] shadow-2xl shadow-indigo-600/30 transition-transform active:scale-[0.97]"
+              className="flex flex-col items-center justify-center p-8 bg-slate-900 border border-slate-800 rounded-[2.5rem] transition-transform active:scale-[0.97]"
             >
-              <Play fill="currentColor" size={32} className="mb-2 text-white" />
-              <span className="font-black italic text-white">Start Working</span>
+              <Play fill="currentColor" size={32} className="mb-2 text-indigo-500" />
+              <span className="font-black text-white">Start Working</span>
             </button>
             <button 
               onClick={() => setShowRecordModal(true)} 
               className="flex flex-col items-center justify-center p-8 bg-slate-900 border border-slate-800 rounded-[2.5rem] transition-transform active:scale-[0.97]"
             >
               <History size={32} className="mb-2 text-slate-500" />
-              <span className="font-black italic text-slate-200">Record Past</span>
+              <span className="font-black text-slate-200">Record Past</span>
             </button>
           </section>
           
           <WeeklyChart 
-            logs={filteredLogs} 
+            logs={logs} 
+            habits={habits}
             activePeriodDates={activePeriodDates} 
             referenceDate={referenceDate} 
             viewMode={viewMode} 
@@ -306,7 +309,7 @@ const App: React.FC = () => {
           logs={logs} 
           habits={habits} 
           onDeleteLog={handleDeleteLog} 
-          onUpdateLog={handleManualRecord} 
+          onUpdateLog={(logId, habitId, start, end) => handleManualRecord(habitId, start, end, logId)} 
           onBack={() => setCurrentView('dashboard')} 
         />
       )}

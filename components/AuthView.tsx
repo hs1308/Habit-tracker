@@ -76,7 +76,7 @@ const AuthView: React.FC = () => {
           <Sparkles className="text-white" size={40} />
         </div>
         
-        <h1 className="text-5xl font-extrabold text-white mb-4 tracking-tighter italic">BeConsistent</h1>
+        <h1 className="text-5xl font-extrabold text-white mb-4 tracking-tighter">Be Consistent</h1>
         
         {error ? (
           <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center gap-3 animate-in slide-in-from-top-2">

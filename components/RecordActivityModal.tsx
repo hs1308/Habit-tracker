@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Calendar, Clock, ChevronDown } from 'lucide-react';
 import { Habit, HabitLog } from '../types';
+import { getAttributedDate } from '../utils/dateUtils';
 
 interface RecordActivityModalProps {
   habits: Habit[];
@@ -27,17 +27,26 @@ const RecordActivityModal: React.FC<RecordActivityModalProps> = ({ habits, onClo
       const end = new Date(initialLog.end_time);
       
       setSelectedHabitId(initialLog.habit_id);
-      setStartDate(start.toISOString().split('T')[0]);
+      // Use local date instead of UTC ISO string to prevent date shift
+      setStartDate(getAttributedDate(start));
+      
       setStartHour(start.getHours().toString().padStart(2, '0'));
-      setStartMin(start.getMinutes().toString().padStart(2, '0'));
       setEndHour(end.getHours().toString().padStart(2, '0'));
-      setEndMin(end.getMinutes().toString().padStart(2, '0'));
+      
+      const sMin = Math.round(start.getMinutes() / 5) * 5;
+      const eMin = Math.round(end.getMinutes() / 5) * 5;
+      
+      setStartMin((sMin >= 60 ? 55 : sMin).toString().padStart(2, '0'));
+      setEndMin((eMin >= 60 ? 55 : eMin).toString().padStart(2, '0'));
     } else {
+      const now = new Date();
       setSelectedHabitId(habits[0]?.id || '');
-      setStartDate(new Date().toISOString().split('T')[0]);
-      setStartHour('09');
+      setStartDate(getAttributedDate(now));
+      // Round down to current hour
+      const currentHour = now.getHours().toString().padStart(2, '0');
+      setStartHour(currentHour);
       setStartMin('00');
-      setEndHour('10');
+      setEndHour(currentHour);
       setEndMin('00');
     }
   }, [initialLog, habits]);
@@ -45,9 +54,11 @@ const RecordActivityModal: React.FC<RecordActivityModalProps> = ({ habits, onClo
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Create dates using local time parts
     const startDateTime = new Date(`${startDate}T${startHour}:${startMin}:00`);
     let endDateTime = new Date(`${startDate}T${endHour}:${endMin}:00`);
 
+    // If end time is before start time, assume it crosses midnight
     if (endDateTime <= startDateTime) {
       endDateTime.setDate(endDateTime.getDate() + 1);
     }
@@ -64,7 +75,7 @@ const RecordActivityModal: React.FC<RecordActivityModalProps> = ({ habits, onClo
   };
 
   const hourOptions = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
-  const minuteOptions = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+  const minuteOptions = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
 
   const handleDateClick = () => {
     if (dateInputRef.current) {
@@ -182,19 +193,10 @@ const RecordActivityModal: React.FC<RecordActivityModalProps> = ({ habits, onClo
               label="End Time" 
               hour={endHour} 
               min={endMin} 
-              setHour={setEndHour} 
-              setMin={setEndMin} 
+              setHour={setHour => setEndHour(setHour)} 
+              setMin={setMin => setEndMin(setMin)} 
             />
           </div>
-
-          {parseInt(endHour) < parseInt(startHour) && (
-            <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-start gap-3 animate-in fade-in duration-300">
-              <Clock className="text-indigo-400 shrink-0 mt-0.5" size={16} />
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                <span className="text-indigo-400 font-bold">Midnight Cross:</span> Your session ends the following day. It will be attributed to your start date.
-              </p>
-            </div>
-          )}
 
           <button 
             type="submit"
