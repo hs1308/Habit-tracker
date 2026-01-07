@@ -1,4 +1,5 @@
 
+import './style.css';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Menu, Play, History, Plus, AlertCircle } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './supabase';
@@ -17,7 +18,8 @@ import { getAttributedDate, getPeriodDates } from './utils/dateUtils';
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Auth loading
+  const [isInitialLoad, setIsInitialLoad] = useState(true); // Data loading
   const [habits, setHabits] = useState<Habit[]>([]);
   const [logs, setLogs] = useState<HabitLog[]>([]);
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
@@ -55,36 +57,6 @@ const App: React.FC = () => {
     }
   }, [session]);
 
-  useEffect(() => {
-    if (!session?.user || !supabase) return;
-
-    const profileChannel = supabase.channel('profile-realtime').on('postgres_changes', { 
-      event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${session.user.id}` 
-    }, (payload) => setProfile(payload.new as Profile)).subscribe();
-
-    const habitsChannel = supabase.channel('habits-realtime').on('postgres_changes', { 
-      event: '*', schema: 'public', table: 'habits', filter: `user_id=eq.${session.user.id}` 
-    }, (payload) => {
-      if (payload.eventType === 'INSERT') setHabits(prev => [...prev, payload.new as Habit]);
-      else if (payload.eventType === 'UPDATE') setHabits(prev => prev.map(h => h.id === payload.new.id ? payload.new as Habit : h));
-      else if (payload.eventType === 'DELETE') setHabits(prev => prev.filter(h => h.id !== payload.old.id));
-    }).subscribe();
-
-    const logsChannel = supabase.channel('logs-realtime').on('postgres_changes', { 
-      event: '*', schema: 'public', table: 'habit_logs', filter: `user_id=eq.${session.user.id}` 
-    }, (payload) => {
-      if (payload.eventType === 'INSERT') setLogs(prev => [...prev, payload.new as HabitLog]);
-      else if (payload.eventType === 'UPDATE') setLogs(prev => prev.map(l => l.id === payload.new.id ? payload.new as HabitLog : l));
-      else if (payload.eventType === 'DELETE') setLogs(prev => prev.filter(l => l.id !== payload.old.id));
-    }).subscribe();
-
-    return () => {
-      supabase.removeChannel(profileChannel);
-      supabase.removeChannel(habitsChannel);
-      supabase.removeChannel(logsChannel);
-    };
-  }, [session]);
-
   const fetchProfile = async () => {
     if (!session?.user || !supabase) return;
     const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
@@ -92,20 +64,26 @@ const App: React.FC = () => {
   };
 
   const fetchUserData = async () => {
+    if (!session?.user || !supabase) return;
     try {
       const [habitsRes, logsRes] = await Promise.all([
-        supabase!.from('habits').select('*').eq('user_id', session.user.id),
-        supabase!.from('habit_logs').select('*').eq('user_id', session.user.id)
+        supabase.from('habits').select('*').eq('user_id', session.user.id),
+        supabase.from('habit_logs').select('*').eq('user_id', session.user.id)
       ]);
       if (habitsRes.data) setHabits(habitsRes.data);
       if (logsRes.data) setLogs(logsRes.data);
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error("Error fetching user data:", e); 
+    } finally {
+      setIsInitialLoad(false);
+    }
   };
 
   const updateNickname = async (name: string) => {
     if (!session?.user || !supabase) return;
     const { error } = await supabase.from('profiles').update({ full_name: name }).eq('id', session.user.id);
     if (error) throw error;
+    fetchProfile();
   };
 
   const activePeriodDates = useMemo(() => getPeriodDates(referenceDate, viewMode), [referenceDate, viewMode]);
@@ -115,10 +93,16 @@ const App: React.FC = () => {
     return logs.filter(log => log.habit_id === selectedHabitId);
   }, [logs, selectedHabitId]);
 
-  const currentUserNickname = profile?.full_name || session?.user?.email || 'Focus User';
+  // Robust nickname handling for Google and Anonymous users
+  const currentUserNickname = useMemo(() => {
+    if (profile?.full_name) return profile.full_name;
+    if (session?.user?.email) return session.user.email.split('@')[0];
+    return 'Guest User';
+  }, [profile, session]);
 
   const handleOnboardingComplete = async (newHabitConfigs: { name: string; color: string; icon: string }[]) => {
     if (!session?.user || !supabase) return;
+    const userId = session.user.id; // Capture ID explicitly
     const newHabitsToInsert = newHabitConfigs.map(config => ({
       name: config.name,
       habit_name: config.name,
@@ -126,10 +110,11 @@ const App: React.FC = () => {
       log_created_date: getAttributedDate(new Date()),
       icon: config.icon,
       color: config.color,
-      user_id: session.user.id
+      user_id: userId
     }));
     const { error } = await supabase.from('habits').insert(newHabitsToInsert);
     if (error) throw new Error(error.message);
+    fetchUserData();
   };
 
   const handleStartTimer = (habitId: string) => {
@@ -139,13 +124,14 @@ const App: React.FC = () => {
 
   const handleCompleteTimer = async (durationSeconds: number) => {
     if (!activeTimer || !session?.user || !supabase) return;
+    const userId = session.user.id;
     const habit = habits.find(h => h.id === activeTimer.habitId);
     const start = new Date(activeTimer.startTime);
     const end = new Date(activeTimer.startTime + durationSeconds * 1000);
 
     const newLogEntry = {
       habit_id: activeTimer.habitId,
-      user_id: session.user.id,
+      user_id: userId,
       habit_name: habit?.name || 'Unknown',
       user_name: currentUserNickname,
       log_created_date: getAttributedDate(new Date()),
@@ -157,11 +143,13 @@ const App: React.FC = () => {
 
     const { error } = await supabase.from('habit_logs').insert([newLogEntry]);
     if (error) console.error("Error logging activity:", error);
+    await fetchUserData();
     setActiveTimer(null);
   };
 
   const handleManualRecord = async (habitId: string, startStr: string, endStr: string, logId?: string) => {
     if (!session?.user || !supabase) return;
+    const userId = session.user.id;
     const habit = habits.find(h => h.id === habitId);
     const start = new Date(startStr);
     const duration = Math.floor((new Date(endStr).getTime() - start.getTime()) / 1000);
@@ -180,14 +168,16 @@ const App: React.FC = () => {
     if (logId) {
       await supabase.from('habit_logs').update(payload).eq('id', logId);
     } else {
-      payload.user_id = session.user.id;
+      payload.user_id = userId;
       await supabase.from('habit_logs').insert([payload]);
     }
+    await fetchUserData();
     setShowRecordModal(false);
   };
 
   const handleAddHabit = async (name: string, color: string) => {
     if (!session?.user || !supabase) return;
+    const userId = session.user.id;
     await supabase.from('habits').insert([{
       name, 
       habit_name: name, 
@@ -195,8 +185,9 @@ const App: React.FC = () => {
       log_created_date: getAttributedDate(new Date()), 
       icon: 'Target', 
       color, 
-      user_id: session.user.id
+      user_id: userId
     }]);
+    await fetchUserData();
   };
 
   const handleDeleteHabit = async (id: string) => {
@@ -204,11 +195,13 @@ const App: React.FC = () => {
     const deletedAt = new Date().toISOString();
     await supabase.from('habits').update({ deleted_at: deletedAt }).eq('id', id);
     if (selectedHabitId === id) setSelectedHabitId(null);
+    await fetchUserData();
   };
 
   const handleDeleteLog = async (id: string) => {
     if (!supabase) return;
     await supabase.from('habit_logs').delete().eq('id', id);
+    await fetchUserData();
   };
 
   const handleLogout = async () => { if (supabase) await supabase.auth.signOut(); };
@@ -230,6 +223,17 @@ const App: React.FC = () => {
   );
 
   if (!session) return <AuthView />;
+
+  // Initial Load prevents Onboarding screen from flashing for existing users
+  if (isInitialLoad) return (
+    <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-10 h-10 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Restoring Context</p>
+      </div>
+    </div>
+  );
+
   if (habits.length === 0) return <OnboardingView onComplete={handleOnboardingComplete} />;
 
   const activeTimerHabit = habits.find(h => h.id === activeTimer?.habitId);
@@ -252,37 +256,111 @@ const App: React.FC = () => {
           <Menu size={24} className="text-slate-400" />
         </button>
       </header>
+      
       {currentView === 'dashboard' && (
         <div className="space-y-10">
           <section className="grid grid-cols-2 gap-5 pt-4">
-            <button onClick={() => setIsTimerPickerOpen(true)} className="flex flex-col items-center justify-center p-8 bg-indigo-600 rounded-[2.5rem] shadow-2xl shadow-indigo-600/30"><Play fill="currentColor" size={32} className="mb-2" /><span className="font-black italic">Start</span></button>
-            <button onClick={() => setShowRecordModal(true)} className="flex flex-col items-center justify-center p-8 bg-slate-900 border border-slate-800 rounded-[2.5rem]"><History size={32} className="mb-2 text-slate-500" /><span className="font-black italic">Log</span></button>
+            <button 
+              onClick={() => setIsTimerPickerOpen(true)} 
+              className="flex flex-col items-center justify-center p-8 bg-indigo-600 rounded-[2.5rem] shadow-2xl shadow-indigo-600/30 transition-transform active:scale-[0.97]"
+            >
+              <Play fill="currentColor" size={32} className="mb-2 text-white" />
+              <span className="font-black italic text-white">Start Working</span>
+            </button>
+            <button 
+              onClick={() => setShowRecordModal(true)} 
+              className="flex flex-col items-center justify-center p-8 bg-slate-900 border border-slate-800 rounded-[2.5rem] transition-transform active:scale-[0.97]"
+            >
+              <History size={32} className="mb-2 text-slate-500" />
+              <span className="font-black italic text-slate-200">Record Past</span>
+            </button>
           </section>
-          <WeeklyChart logs={filteredLogs} activePeriodDates={activePeriodDates} referenceDate={referenceDate} viewMode={viewMode} onNavigate={(dir) => {
-              const newDate = new Date(referenceDate);
-              if (viewMode === 'week') newDate.setDate(newDate.getDate() + (dir * 7));
-              else newDate.setMonth(newDate.getMonth() + dir);
-              setReferenceDate(newDate);
-          }} onViewChange={setViewMode} />
-          <HabitSplitGrid habits={habits} logs={logs} activePeriodDates={activePeriodDates} selectedHabitId={selectedHabitId} onSelectHabit={setSelectedHabitId} />
+          
+          <WeeklyChart 
+            logs={filteredLogs} 
+            activePeriodDates={activePeriodDates} 
+            referenceDate={referenceDate} 
+            viewMode={viewMode} 
+            onNavigate={(dir) => {
+                const newDate = new Date(referenceDate);
+                if (viewMode === 'week') newDate.setDate(newDate.getDate() + (dir * 7));
+                else newDate.setMonth(newDate.getMonth() + dir);
+                setReferenceDate(newDate);
+            }} 
+            onViewChange={setViewMode} 
+            filteredHabitName={habits.find(h => h.id === selectedHabitId)?.name}
+          />
+          
+          <HabitSplitGrid 
+            habits={habits} 
+            logs={logs} 
+            activePeriodDates={activePeriodDates} 
+            selectedHabitId={selectedHabitId} 
+            onSelectHabit={setSelectedHabitId} 
+          />
         </div>
       )}
-      {currentView === 'logs' && <LogsView logs={logs} habits={habits} onDeleteLog={handleDeleteLog} onUpdateLog={handleManualRecord} onBack={() => setCurrentView('dashboard')} />}
-      {currentView === 'settings' && <SettingsView habits={habits} onAddHabit={handleAddHabit} onDeleteHabit={handleDeleteHabit} onBack={() => setCurrentView('dashboard')} />}
+      
+      {currentView === 'logs' && (
+        <LogsView 
+          logs={logs} 
+          habits={habits} 
+          onDeleteLog={handleDeleteLog} 
+          onUpdateLog={handleManualRecord} 
+          onBack={() => setCurrentView('dashboard')} 
+        />
+      )}
+      
+      {currentView === 'settings' && (
+        <SettingsView 
+          habits={habits} 
+          onAddHabit={handleAddHabit} 
+          onDeleteHabit={handleDeleteHabit} 
+          onBack={() => setCurrentView('dashboard')} 
+        />
+      )}
+      
       {isTimerPickerOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
           <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 shadow-2xl animate-in slide-in-from-bottom-10">
-            <div className="flex justify-between items-center mb-8"><h2 className="text-2xl font-black italic">Select Focus</h2><button onClick={() => setIsTimerPickerOpen(false)}><Plus size={28} className="rotate-45" /></button></div>
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-2xl font-black italic">Select Focus</h2>
+              <button onClick={() => setIsTimerPickerOpen(false)}>
+                <Plus size={28} className="rotate-45 text-slate-500" />
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               {activeHabits.map(h => (
-                <button key={h.id} onClick={() => handleStartTimer(h.id)} className="p-6 bg-slate-800/50 rounded-3xl text-left border border-slate-700 hover:border-indigo-500 transition-all"><div className={`w-3 h-3 rounded-full ${h.color} mb-3 shadow-lg`} /><p className="font-black text-white truncate">{h.name}</p></button>
+                <button 
+                  key={h.id} 
+                  onClick={() => handleStartTimer(h.id)} 
+                  className="p-6 bg-slate-800/50 rounded-3xl text-left border border-slate-700 hover:border-indigo-500 transition-all group"
+                >
+                  <div className={`w-3 h-3 rounded-full ${h.color} mb-3 shadow-lg group-hover:scale-125 transition-transform`} />
+                  <p className="font-black text-white truncate">{h.name}</p>
+                </button>
               ))}
             </div>
           </div>
         </div>
       )}
-      {activeTimer && activeTimerHabit && <TimerOverlay habit={activeTimerHabit} activeTimer={activeTimer} onCancel={() => setActiveTimer(null)} onComplete={handleCompleteTimer} />}
-      {showRecordModal && <RecordActivityModal habits={activeHabits} onClose={() => setShowRecordModal(false)} onSave={handleManualRecord} />}
+      
+      {activeTimer && activeTimerHabit && (
+        <TimerOverlay 
+          habit={activeTimerHabit} 
+          activeTimer={activeTimer} 
+          onCancel={() => setActiveTimer(null)} 
+          onComplete={handleCompleteTimer} 
+        />
+      )}
+      
+      {showRecordModal && (
+        <RecordActivityModal 
+          habits={activeHabits} 
+          onClose={() => setShowRecordModal(false)} 
+          onSave={handleManualRecord} 
+        />
+      )}
     </div>
   );
 };

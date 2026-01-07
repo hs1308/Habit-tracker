@@ -31,7 +31,8 @@ const HabitSplitGrid: React.FC<HabitSplitGridProps> = ({
   onSelectHabit 
 }) => {
   const habitStats = useMemo(() => {
-    return habits.map(habit => {
+    // Process all habits to calculate duration for the period
+    const stats = habits.map(habit => {
       const habitLogs = logs.filter(log => 
         log.habit_id === habit.id && 
         activePeriodDates.includes(log.attributed_date)
@@ -41,7 +42,14 @@ const HabitSplitGrid: React.FC<HabitSplitGridProps> = ({
         ...habit,
         totalSeconds
       };
-    }).sort((a, b) => b.totalSeconds - a.totalSeconds);
+    });
+
+    // Filter Logic:
+    // 1. Show the habit if it is NOT deleted.
+    // 2. Show the habit if it IS deleted BUT had activity in the selected period.
+    return stats
+      .filter(h => !h.deleted_at || h.totalSeconds > 0)
+      .sort((a, b) => b.totalSeconds - a.totalSeconds);
   }, [habits, logs, activePeriodDates]);
 
   return (
@@ -54,6 +62,7 @@ const HabitSplitGrid: React.FC<HabitSplitGridProps> = ({
         {habitStats.map(habit => {
           const Icon = ICON_MAP[habit.icon] || Target;
           const isSelected = selectedHabitId === habit.id;
+          const isDeleted = !!habit.deleted_at;
           
           return (
             <div 
@@ -76,9 +85,16 @@ const HabitSplitGrid: React.FC<HabitSplitGridProps> = ({
                 <p className={`text-2xl font-bold mb-1 ${isSelected ? 'text-indigo-400' : 'text-slate-100'}`}>
                   {formatDuration(habit.totalSeconds)}
                 </p>
-                <p className={`text-sm font-medium ${isSelected ? 'text-indigo-300' : 'text-slate-400'}`}>
-                  {habit.name}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className={`text-sm font-medium ${isSelected ? 'text-indigo-300' : 'text-slate-400'}`}>
+                    {habit.name}
+                  </p>
+                  {isDeleted && (
+                    <span className="text-[8px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded uppercase font-bold tracking-tighter">
+                      Archived
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           );

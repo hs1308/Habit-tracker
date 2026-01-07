@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { Sparkles, UserCircle, ShieldAlert, ChevronDown, ChevronUp, Lock, Globe, Copy, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Sparkles, UserCircle, ShieldAlert, ChevronDown, ChevronUp, Globe, Copy, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 const AuthView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
@@ -10,7 +9,6 @@ const AuthView: React.FC = () => {
   const [showTroubleshoot, setShowTroubleshoot] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // The actual URL your browser is currently on
   const currentUrl = window.location.origin;
 
   useEffect(() => {
@@ -44,8 +42,6 @@ const AuthView: React.FC = () => {
         }
       };
 
-      // In 'safe' mode, we don't send redirectTo. 
-      // Supabase will use whatever you set as "Site URL" in the Dashboard.
       if (mode === 'standard') {
         options.options.redirectTo = currentUrl;
       }
@@ -89,7 +85,7 @@ const AuthView: React.FC = () => {
           </div>
         ) : (
           <p className="text-slate-400 text-lg mb-12 max-w-xs mx-auto italic font-medium">
-            "We are what we repeatedly do."
+            &quot;We are what we repeatedly do.&quot;
           </p>
         )}
 

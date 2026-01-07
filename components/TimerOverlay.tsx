@@ -106,7 +106,7 @@ const TimerOverlay: React.FC<TimerOverlayProps> = ({ habit, activeTimer, onCance
         </div>
         
         <div className="bg-slate-800/50 p-4 text-center">
-          <p className="text-slate-400 text-xs italic">"Do some action everyday, however small"</p>
+          <p className="text-slate-400 text-xs italic">&quot;Do some action everyday, however small&quot;</p>
         </div>
       </div>
     </div>
