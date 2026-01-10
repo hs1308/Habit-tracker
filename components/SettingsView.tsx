@@ -134,28 +134,32 @@ const SettingsView: React.FC<SettingsViewProps> = ({ habits, onAddHabit, onDelet
                 <span className="text-[10px] font-black text-slate-500 group-hover:text-indigo-400 uppercase tracking-widest">Custom</span>
               </button>
             ) : (
-              <div className="col-span-2 sm:col-span-1 p-4 rounded-3xl border border-indigo-500 bg-slate-900 flex flex-col justify-between min-h-[112px] animate-in zoom-in-95">
+              <div className="col-span-2 sm:col-span-1 p-5 rounded-3xl border-2 border-indigo-500 bg-slate-900 flex flex-col justify-between min-h-[140px] animate-in zoom-in-95">
                 <input 
                   autoFocus
                   type="text"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="Name..."
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:ring-1 focus:ring-indigo-500 mb-2"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
                 />
-                <div className="flex items-center justify-between gap-1.5">
-                  <div className="grid grid-cols-5 gap-1">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="grid grid-cols-5 gap-2">
                     {CUSTOM_COLORS.map(c => (
                       <button 
                         key={c}
                         onClick={() => setSelectedColor(c)}
-                        className={`w-3 h-3 rounded-full shrink-0 ${c} ${selectedColor === c ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-900' : ''}`}
+                        className={`w-5 h-5 rounded-full shrink-0 ${c} ${selectedColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''}`}
                       />
                     ))}
                   </div>
-                  <div className="flex gap-1 shrink-0">
-                    <button onClick={() => setShowCustomForm(false)} className="p-1 bg-slate-800 text-slate-400 rounded-lg hover:text-white"><X size={12} /></button>
-                    <button onClick={handleCustomSubmit} className="p-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500"><CheckCircle2 size={12} /></button>
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={() => setShowCustomForm(false)} className="p-2 bg-slate-800 text-slate-400 rounded-xl hover:text-white transition-colors" title="Cancel">
+                      <X size={18} />
+                    </button>
+                    <button onClick={handleCustomSubmit} className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20" title="Save Habit">
+                      <CheckCircle2 size={18} />
+                    </button>
                   </div>
                 </div>
               </div>

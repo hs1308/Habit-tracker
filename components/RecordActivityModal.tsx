@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, Clock, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Calendar, ChevronDown } from 'lucide-react';
 import { Habit, HabitLog } from '../types';
 import { getAttributedDate } from '../utils/dateUtils';
 
@@ -18,8 +18,6 @@ const RecordActivityModal: React.FC<RecordActivityModalProps> = ({ habits, onClo
   const [startMin, setStartMin] = useState('00');
   const [endHour, setEndHour] = useState('10');
   const [endMin, setEndMin] = useState('00');
-  
-  const dateInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialLog) {
@@ -27,7 +25,6 @@ const RecordActivityModal: React.FC<RecordActivityModalProps> = ({ habits, onClo
       const end = new Date(initialLog.end_time);
       
       setSelectedHabitId(initialLog.habit_id);
-      // Use local date instead of UTC ISO string to prevent date shift
       setStartDate(getAttributedDate(start));
       
       setStartHour(start.getHours().toString().padStart(2, '0'));
@@ -42,7 +39,6 @@ const RecordActivityModal: React.FC<RecordActivityModalProps> = ({ habits, onClo
       const now = new Date();
       setSelectedHabitId(habits[0]?.id || '');
       setStartDate(getAttributedDate(now));
-      // Round down to current hour
       const currentHour = now.getHours().toString().padStart(2, '0');
       setStartHour(currentHour);
       setStartMin('00');
@@ -54,11 +50,9 @@ const RecordActivityModal: React.FC<RecordActivityModalProps> = ({ habits, onClo
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Create dates using local time parts
     const startDateTime = new Date(`${startDate}T${startHour}:${startMin}:00`);
     let endDateTime = new Date(`${startDate}T${endHour}:${endMin}:00`);
 
-    // If end time is before start time, assume it crosses midnight
     if (endDateTime <= startDateTime) {
       endDateTime.setDate(endDateTime.getDate() + 1);
     }
@@ -76,22 +70,6 @@ const RecordActivityModal: React.FC<RecordActivityModalProps> = ({ habits, onClo
 
   const hourOptions = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
   const minuteOptions = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
-
-  const handleDateClick = (e?: React.MouseEvent) => {
-    if (dateInputRef.current) {
-      try {
-        if ('showPicker' in HTMLInputElement.prototype) {
-          dateInputRef.current.showPicker();
-        } else {
-          dateInputRef.current.focus();
-          dateInputRef.current.click();
-        }
-      } catch (e) {
-        dateInputRef.current.focus();
-        dateInputRef.current.click();
-      }
-    }
-  };
 
   const TimeSelector = ({ 
     label, 
@@ -168,21 +146,14 @@ const RecordActivityModal: React.FC<RecordActivityModalProps> = ({ habits, onClo
 
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Activity Date</label>
-            <div 
-              className="relative group cursor-pointer"
-              onClick={() => handleDateClick()}
-            >
-              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 group-hover:scale-110 transition-transform z-10" size={18} />
+            <div className="date-field-container group">
+              {/* pointer-events-none ensures the click reaches the invisible native trigger behind the icon */}
+              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 group-hover:scale-110 transition-transform z-20 pointer-events-none" size={18} />
               <input 
-                ref={dateInputRef}
                 type="date" 
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                onClick={(e) => {
-                  e.stopPropagation(); // Let handleDateClick deal with it
-                  handleDateClick();
-                }}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl py-4 pl-12 pr-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-white font-black text-lg cursor-pointer transition-all hover:bg-slate-700/50"
+                className="date-field-trigger w-full bg-slate-800 border border-slate-700 rounded-xl py-4 pl-12 pr-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-white font-black text-lg cursor-pointer transition-all hover:bg-slate-700/50"
               />
             </div>
           </div>
@@ -199,8 +170,8 @@ const RecordActivityModal: React.FC<RecordActivityModalProps> = ({ habits, onClo
               label="End Time" 
               hour={endHour} 
               min={endMin} 
-              setHour={setHour => setEndHour(setHour)} 
-              setMin={setMin => setEndMin(setMin)} 
+              setHour={setEndHour} 
+              setMin={setEndMin} 
             />
           </div>
 

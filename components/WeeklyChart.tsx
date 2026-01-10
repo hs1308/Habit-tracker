@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { getDayName, formatDuration, getPeriodLabel, getCalendarGrid } from '../utils/dateUtils';
 import { HabitLog, Habit } from '../types';
@@ -43,6 +43,9 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
 }) => {
   const [viewType, setViewType] = useState<'total' | 'split'>('total');
   const [breakdownDay, setBreakdownDay] = useState<string | null>(null);
+  
+  // Ref to track touch start position for scroll vs tap detection
+  const touchStartPos = useRef<{ x: number, y: number } | null>(null);
 
   // If a habit is selected, force total view since split is redundant
   useEffect(() => {
@@ -158,6 +161,30 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       const s = dayLogs.filter(l => l.habit_id === hid).reduce((sum, l) => sum + l.duration_seconds, 0);
       return { id: hid, name: h?.name, color: h?.color, seconds: s };
     }).filter(b => b.seconds > 0);
+  };
+
+  // Helper to handle both click and touch correctly
+  const handleDayInteraction = (date: string, isFromTouch = false) => {
+    setBreakdownDay(prev => prev === date ? null : date);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent, date: string) => {
+    if (!touchStartPos.current) return;
+    
+    const touchEnd = e.changedTouches[0];
+    const dx = Math.abs(touchEnd.clientX - touchStartPos.current.x);
+    const dy = Math.abs(touchEnd.clientY - touchStartPos.current.y);
+    
+    touchStartPos.current = null;
+
+    // 10px threshold to distinguish between tap and scroll
+    if (dx < 10 && dy < 10) {
+      handleDayInteraction(date, true);
+    }
   };
 
   return (
@@ -306,7 +333,13 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                   className="relative aspect-square flex items-center justify-center cursor-pointer group/cell"
                   onMouseEnter={() => setBreakdownDay(item.date)}
                   onMouseLeave={() => setBreakdownDay(null)}
-                  onClick={() => setBreakdownDay(prev => prev === item.date ? null : item.date)}
+                  onTouchStart={handleTouchStart}
+                  onTouchEnd={(e) => handleTouchEnd(e, item.date)}
+                  onClick={(e) => {
+                    // Only trigger onClick if it's not from a touch (i.e. mouse)
+                    // touchEnd handles mobile logic
+                    if (e.detail > 0) handleDayInteraction(item.date);
+                  }}
                 >
                   {hasActivity && (
                     <div 

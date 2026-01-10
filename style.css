@@ -23,16 +23,26 @@ body {
     background: #475569;
 }
 
-/* Hide default calendar icon in date inputs but keep it clickable */
-input[type="date"]::-webkit-calendar-picker-indicator {
-    background: transparent;
+/* 
+   Expands the native calendar picker icon to cover the entire input area.
+   This allows the user to click anywhere (text, background, or icon) to open the calendar.
+   Scoped to .date-field-trigger to avoid affecting every date input globally.
+*/
+.date-field-trigger::-webkit-calendar-picker-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
     bottom: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
     color: transparent;
     cursor: pointer;
-    height: auto;
-    left: 0;
-    position: absolute;
-    right: 0;
-    top: 0;
-    width: auto;
+    z-index: 10;
+}
+
+/* Ensure the input container is relative for the absolute indicator positioning */
+.date-field-container {
+    position: relative;
 }

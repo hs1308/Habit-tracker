@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Habit, HabitLog } from '../types';
 import { formatDuration, getDayName, getStartOfWeek, getEndOfWeek, getAttributedDate } from '../utils/dateUtils';
@@ -17,7 +16,6 @@ const LogsView: React.FC<LogsViewProps> = ({ logs, habits, onDeleteLog, onUpdate
   const [editingLog, setEditingLog] = useState<HabitLog | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   
-  // Default range: Current Week (Sun to Sat)
   const [filterStart, setFilterStart] = useState<string>(getAttributedDate(getStartOfWeek(new Date())));
   const [filterEnd, setFilterEnd] = useState<string>(getAttributedDate(getEndOfWeek(new Date())));
 
@@ -64,24 +62,28 @@ const LogsView: React.FC<LogsViewProps> = ({ logs, habits, onDeleteLog, onUpdate
           <div className="flex flex-col sm:flex-row gap-6 items-center">
             <div className="flex-1 w-full space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">From</label>
-              <input 
-                type="date" 
-                value={filterStart}
-                onChange={(e) => setFilterStart(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-              />
+              <div className="date-field-container">
+                <input 
+                  type="date" 
+                  value={filterStart}
+                  onChange={(e) => setFilterStart(e.target.value)}
+                  className="date-field-trigger w-full bg-slate-800 border border-slate-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                />
+              </div>
             </div>
             <div className="hidden sm:block text-slate-700 mt-6">
               <ChevronLeft className="rotate-180" size={20} />
             </div>
             <div className="flex-1 w-full space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">To</label>
-              <input 
-                type="date" 
-                value={filterEnd}
-                onChange={(e) => setFilterEnd(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-              />
+              <div className="date-field-container">
+                <input 
+                  type="date" 
+                  value={filterEnd}
+                  onChange={(e) => setFilterEnd(e.target.value)}
+                  className="date-field-trigger w-full bg-slate-800 border border-slate-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                />
+              </div>
             </div>
             <button 
               onClick={() => setShowDatePicker(false)}
