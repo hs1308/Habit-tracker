@@ -1,7 +1,6 @@
-
 import './style.css';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Menu, Play, History, Plus, AlertCircle } from 'lucide-react';
+import { Menu, Play, History, Plus, AlertCircle, StickyNote, ChevronRight } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { Habit, HabitLog, ActiveTimer, Profile } from './types';
 import WeeklyChart from './components/WeeklyChart';
@@ -314,7 +313,7 @@ const App: React.FC = () => {
       <header className="py-5 flex justify-between items-center sticky top-0 bg-[#0f172a]/90 backdrop-blur-xl z-40 border-b border-white/5">
         <button 
           onClick={() => setCurrentView('dashboard')}
-          className="max-w-md w-full flex flex-col items-start hover:opacity-80 transition-opacity text-left"
+          className="max-w-md flex flex-col items-start transition-all active:scale-[0.98] text-left md:hover:opacity-80 active:opacity-70"
         >
           <h1 className="text-3xl font-black text-white">Be Consistent</h1>
           <p className="text-[10px] text-slate-500 font-medium italic">Do some action everyday, however small</p>
@@ -367,6 +366,18 @@ const App: React.FC = () => {
             selectedHabitId={selectedHabitId} 
             onSelectHabit={setSelectedHabitId} 
           />
+
+          <section className="pb-10 flex justify-center">
+            <button 
+              onClick={() => setCurrentView('notepad')}
+              className="px-8 py-5 bg-slate-900 border border-slate-800 rounded-[2.5rem] flex items-center gap-5 group hover:border-indigo-500/50 transition-all active:scale-[0.98] active:bg-slate-800 shadow-lg shadow-black/20"
+            >
+              <div className="w-10 h-10 bg-indigo-600/10 rounded-xl flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
+                <StickyNote size={20} />
+              </div>
+              <span className="text-lg font-semibold text-slate-200">Scratchpad</span>
+            </button>
+          </section>
         </div>
       )}
       

@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { X, LayoutDashboard, History, Settings, LogOut, Edit3, Check, Loader2, StickyNote } from 'lucide-react';
+import { X, LayoutDashboard, History, Settings, LogOut, Edit3, Check, Loader2 } from 'lucide-react';
 import { Profile } from '../types';
 
 interface SidebarProps {
@@ -37,7 +38,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'logs', label: 'Activity Logs', icon: History },
     { id: 'settings', label: 'Habit Settings', icon: Settings },
-    { id: 'notepad', label: 'Scratchpad', icon: StickyNote },
   ] as const;
 
   const handleSaveNickname = async () => {
