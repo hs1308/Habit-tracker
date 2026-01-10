@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { getDayName, formatDuration, getPeriodLabel, getCalendarGrid } from '../utils/dateUtils';
 import { HabitLog, Habit } from '../types';
@@ -10,6 +10,7 @@ interface WeeklyChartProps {
   activePeriodDates: string[];
   referenceDate: Date;
   viewMode: 'week' | 'month';
+  selectedHabitId?: string | null;
   onNavigate: (direction: number) => void;
   onViewChange: (mode: 'week' | 'month') => void;
   filteredHabitName?: string;
@@ -24,6 +25,9 @@ const COLOR_MAP: Record<string, string> = {
   'bg-red-500': '#ef4444',
   'bg-pink-500': '#ec4899',
   'bg-amber-500': '#f59e0b',
+  'bg-cyan-500': '#06b6d4',
+  'bg-rose-500': '#f43f5e',
+  'bg-slate-500': '#64748b',
 };
 
 const WeeklyChart: React.FC<WeeklyChartProps> = ({ 
@@ -32,6 +36,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
   activePeriodDates, 
   referenceDate, 
   viewMode, 
+  selectedHabitId,
   onNavigate, 
   onViewChange,
   filteredHabitName
@@ -39,27 +44,40 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
   const [viewType, setViewType] = useState<'total' | 'split'>('total');
   const [breakdownDay, setBreakdownDay] = useState<string | null>(null);
 
+  // If a habit is selected, force total view since split is redundant
+  useEffect(() => {
+    if (selectedHabitId) {
+      setViewType('total');
+    }
+  }, [selectedHabitId]);
+
+  // Filter logs by selected habit if one is chosen
+  const filteredLogs = useMemo(() => {
+    if (!selectedHabitId) return logs;
+    return logs.filter(log => log.habit_id === selectedHabitId);
+  }, [logs, selectedHabitId]);
+
   const totalPeriodSeconds = useMemo(() => {
-    return logs
+    return filteredLogs
       .filter(log => activePeriodDates.includes(log.attributed_date))
       .reduce((sum, log) => sum + log.duration_seconds, 0);
-  }, [logs, activePeriodDates]);
+  }, [filteredLogs, activePeriodDates]);
 
-  // Find all habits that have logs in this period
+  // Find all habits that have logs in this period (respecting the filter)
   const activeHabitIdsInPeriod = useMemo(() => {
     const ids = new Set<string>();
-    logs.forEach(log => {
+    filteredLogs.forEach(log => {
       if (activePeriodDates.includes(log.attributed_date)) {
         ids.add(log.habit_id);
       }
     });
     return Array.from(ids);
-  }, [logs, activePeriodDates]);
+  }, [filteredLogs, activePeriodDates]);
 
   const weekChartData = useMemo(() => {
     if (viewMode !== 'week') return [];
     return activePeriodDates.map(date => {
-      const dayLogs = logs.filter(log => log.attributed_date === date);
+      const dayLogs = filteredLogs.filter(log => log.attributed_date === date);
       const totalSeconds = dayLogs.reduce((sum, log) => sum + log.duration_seconds, 0);
       
       const data: any = {
@@ -78,7 +96,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
 
       return data;
     });
-  }, [logs, activePeriodDates, viewMode, activeHabitIdsInPeriod]);
+  }, [filteredLogs, activePeriodDates, viewMode, activeHabitIdsInPeriod]);
 
   const calendarGrid = useMemo(() => {
     if (viewMode !== 'month') return [];
@@ -89,12 +107,12 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
     if (viewMode !== 'month') return 0;
     let max = 0;
     activePeriodDates.forEach(date => {
-      const dayLogs = logs.filter(log => log.attributed_date === date);
+      const dayLogs = filteredLogs.filter(log => log.attributed_date === date);
       const total = dayLogs.reduce((sum, log) => sum + log.duration_seconds, 0);
       if (total > max) max = total;
     });
     return max || 1;
-  }, [logs, activePeriodDates, viewMode]);
+  }, [filteredLogs, activePeriodDates, viewMode]);
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -114,7 +132,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                 return (
                   <div key={habitId} className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2 overflow-hidden">
-                      <div className={`w-1.5 h-1.5 rounded-full shrink-0`} style={{ backgroundColor: COLOR_MAP[habit?.color || 'bg-indigo-500'] }} />
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0`} style={{ backgroundColor: COLOR_MAP[habit?.color || 'bg-indigo-500'] || '#6366f1' }} />
                       <span className="text-[11px] font-medium text-slate-300 truncate">{habit?.name || 'Unknown'}</span>
                     </div>
                     <span className="text-[11px] font-bold text-white whitespace-nowrap">{formatDuration(habitVal * 3600)}</span>
@@ -134,7 +152,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
   };
 
   const getDayBreakdown = (date: string) => {
-    const dayLogs = logs.filter(log => log.attributed_date === date);
+    const dayLogs = filteredLogs.filter(log => log.attributed_date === date);
     return activeHabitIdsInPeriod.map(hid => {
       const h = habits.find(h => h.id === hid);
       const s = dayLogs.filter(l => l.habit_id === hid).reduce((sum, l) => sum + l.duration_seconds, 0);
@@ -154,7 +172,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
         
         <div className="flex flex-col items-end gap-3">
           <div className="flex gap-4">
-            {viewMode === 'week' && (
+            {viewMode === 'week' && !selectedHabitId && (
               <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800">
                 <button 
                   onClick={() => setViewType('total')}
@@ -214,25 +232,30 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       {viewMode === 'week' && (
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={weekChartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+            <BarChart data={weekChartData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
               <XAxis 
                 dataKey="name" 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fill: '#64748b', fontSize: 12 }}
+                tick={{ fill: '#64748b', fontSize: 10 }}
                 dy={10}
+                interval={0}
               />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
               
               {viewType === 'total' ? (
                 <Bar dataKey="totalHours" radius={[4, 4, 4, 4]}>
-                  {weekChartData.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={entry.totalHours > 0 ? '#6366f1' : '#334155'} 
-                      className="transition-all duration-300 hover:opacity-80"
-                    />
-                  ))}
+                  {weekChartData.map((entry, index) => {
+                    const habit = selectedHabitId ? habits.find(h => h.id === selectedHabitId) : null;
+                    const fillColor = habit ? (COLOR_MAP[habit.color] || '#6366f1') : '#6366f1';
+                    return (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.totalHours > 0 ? fillColor : '#334155'} 
+                        className="transition-all duration-300 hover:opacity-80"
+                      />
+                    );
+                  })}
                 </Bar>
               ) : (
                 activeHabitIdsInPeriod.map((habitId, idx) => {
@@ -267,11 +290,15 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
             {calendarGrid.map((item, idx) => {
               if (!item) return <div key={`empty-${idx}`} className="aspect-square" />;
               
-              const dayLogs = logs.filter(log => log.attributed_date === item.date);
+              const dayLogs = filteredLogs.filter(log => log.attributed_date === item.date);
               const daySeconds = dayLogs.reduce((sum, log) => sum + log.duration_seconds, 0);
               const hasActivity = daySeconds > 0;
               const relativeSize = hasActivity ? (daySeconds / maxDaySeconds) : 0;
               const scaleFactor = hasActivity ? 0.6 + (relativeSize * 1.2) : 0;
+
+              // Use specific habit color if filtered
+              const habit = selectedHabitId ? habits.find(h => h.id === selectedHabitId) : null;
+              const circleColor = habit ? (COLOR_MAP[habit.color] || '#6366f1') : '#6366f1';
 
               return (
                 <div 
@@ -283,12 +310,14 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                 >
                   {hasActivity && (
                     <div 
-                      className="absolute rounded-full bg-indigo-500/40 border border-indigo-400/20 backdrop-blur-[2px] transition-all duration-500 ease-out"
+                      className="absolute rounded-full backdrop-blur-[2px] transition-all duration-500 ease-out"
                       style={{ 
                         width: '70%', 
                         height: '70%', 
                         transform: `scale(${scaleFactor})`,
-                        zIndex: 0
+                        zIndex: 0,
+                        backgroundColor: `${circleColor}66`, // 40% opacity hex suffix
+                        border: `1px solid ${circleColor}33` // 20% opacity
                       }}
                     />
                   )}
@@ -304,7 +333,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                         {getDayBreakdown(item.date).map(b => (
                           <div key={b.id} className="flex items-center justify-between gap-3 text-left">
                             <div className="flex items-center gap-1.5 overflow-hidden">
-                              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: COLOR_MAP[b.color || 'bg-indigo-500'] }} />
+                              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: COLOR_MAP[b.color || 'bg-indigo-500'] || '#6366f1' }} />
                               <span className="text-[10px] font-bold text-slate-200 truncate">{b.name}</span>
                             </div>
                             <span className="text-[10px] font-black text-white whitespace-nowrap">{formatDuration(b.seconds)}</span>

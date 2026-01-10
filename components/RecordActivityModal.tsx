@@ -77,16 +77,18 @@ const RecordActivityModal: React.FC<RecordActivityModalProps> = ({ habits, onClo
   const hourOptions = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
   const minuteOptions = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
 
-  const handleDateClick = () => {
+  const handleDateClick = (e?: React.MouseEvent) => {
     if (dateInputRef.current) {
       try {
         if ('showPicker' in HTMLInputElement.prototype) {
           dateInputRef.current.showPicker();
         } else {
           dateInputRef.current.focus();
+          dateInputRef.current.click();
         }
       } catch (e) {
         dateInputRef.current.focus();
+        dateInputRef.current.click();
       }
     }
   };
@@ -168,15 +170,19 @@ const RecordActivityModal: React.FC<RecordActivityModalProps> = ({ habits, onClo
             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Activity Date</label>
             <div 
               className="relative group cursor-pointer"
-              onClick={handleDateClick}
+              onClick={() => handleDateClick()}
             >
-              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 group-hover:scale-110 transition-transform" size={18} />
+              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 group-hover:scale-110 transition-transform z-10" size={18} />
               <input 
                 ref={dateInputRef}
                 type="date" 
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl py-4 pl-12 pr-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-white font-medium cursor-pointer transition-all hover:bg-slate-700/50"
+                onClick={(e) => {
+                  e.stopPropagation(); // Let handleDateClick deal with it
+                  handleDateClick();
+                }}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl py-4 pl-12 pr-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-white font-black text-lg cursor-pointer transition-all hover:bg-slate-700/50"
               />
             </div>
           </div>
@@ -202,7 +208,7 @@ const RecordActivityModal: React.FC<RecordActivityModalProps> = ({ habits, onClo
             type="submit"
             className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl shadow-lg shadow-indigo-600/20 transition-all active:scale-[0.98]"
           >
-            {initialLog ? 'Update Entry' : 'Add Consistency Record'}
+            {initialLog ? 'Update Log' : 'Add Log'}
           </button>
         </form>
       </div>

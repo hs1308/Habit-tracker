@@ -20,16 +20,27 @@ export const getAttributedDate = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+export const getStartOfWeek = (date: Date): Date => {
+  const d = new Date(date);
+  const day = d.getDay(); // 0 (Sun) to 6 (Sat)
+  const diff = d.getDate() - day;
+  const start = new Date(d.setDate(diff));
+  start.setHours(0, 0, 0, 0);
+  return start;
+};
+
+export const getEndOfWeek = (date: Date): Date => {
+  const start = getStartOfWeek(date);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return end;
+};
+
 export const getPeriodDates = (refDate: Date, mode: 'week' | 'month'): string[] => {
   const dates: string[] = [];
   if (mode === 'week') {
-    const d = new Date(refDate);
-    const day = d.getDay(); // 0 (Sun) to 6 (Sat)
-    // Sunday start: Move back by 'day' number of days
-    const diff = d.getDate() - day;
-    const start = new Date(d.setDate(diff));
-    start.setHours(0, 0, 0, 0);
-
+    const start = getStartOfWeek(refDate);
     for (let i = 0; i < 7; i++) {
       const next = new Date(start);
       next.setDate(start.getDate() + i);
@@ -55,7 +66,6 @@ export const getCalendarGrid = (refDate: Date) => {
   const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
   
   const grid = [];
-  // Sunday start offset is just the day index (Sun=0)
   const startOffset = firstDayOfMonth; 
 
   for (let i = 0; i < startOffset; i++) {
@@ -76,13 +86,8 @@ export const getCalendarGrid = (refDate: Date) => {
 export const getPeriodLabel = (refDate: Date, mode: 'week' | 'month'): string => {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   if (mode === 'week') {
-    const d = new Date(refDate);
-    const day = d.getDay();
-    const diff = d.getDate() - day;
-    const start = new Date(d.setDate(diff));
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    
+    const start = getStartOfWeek(refDate);
+    const end = getEndOfWeek(refDate);
     return `${months[start.getMonth()]} ${start.getDate()} - ${months[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
   } else {
     const fullMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];

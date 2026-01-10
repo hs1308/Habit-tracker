@@ -87,10 +87,6 @@ const App: React.FC = () => {
 
   const activePeriodDates = useMemo(() => getPeriodDates(referenceDate, viewMode), [referenceDate, viewMode]);
   const activeHabits = habits.filter(h => !h.deleted_at);
-  const filteredLogs = useMemo(() => {
-    if (!selectedHabitId) return logs;
-    return logs.filter(log => log.habit_id === selectedHabitId);
-  }, [logs, selectedHabitId]);
 
   const currentUserNickname = useMemo(() => {
     if (profile?.full_name) return profile.full_name;
@@ -178,7 +174,7 @@ const App: React.FC = () => {
   const handleAddHabit = async (name: string, color: string) => {
     if (!session?.user || !supabase) return;
     const userId = session.user.id;
-    await supabase.from('habits').insert([{
+    const { error } = await supabase.from('habits').insert([{
       name, 
       habit_name: name, 
       user_name: currentUserNickname,
@@ -187,20 +183,43 @@ const App: React.FC = () => {
       color, 
       user_id: userId
     }]);
+    
+    if (error) {
+      console.error("Error adding habit:", error);
+      alert("Could not add habit: " + error.message);
+      return;
+    }
     await fetchUserData();
   };
 
   const handleDeleteHabit = async (id: string) => {
-    if (!supabase) return;
+    if (!supabase || !session?.user) return;
+    
     const deletedAt = new Date().toISOString();
-    await supabase.from('habits').update({ deleted_at: deletedAt }).eq('id', id);
+    // Strengthened query with explicit user_id match
+    const { error } = await supabase
+      .from('habits')
+      .update({ deleted_at: deletedAt })
+      .eq('id', id)
+      .eq('user_id', session.user.id);
+    
+    if (error) {
+      console.error("Error archiving habit:", error);
+      throw error; // Rethrow to handle in component UI
+    }
+    
     if (selectedHabitId === id) setSelectedHabitId(null);
     await fetchUserData();
   };
 
   const handleDeleteLog = async (id: string) => {
     if (!supabase) return;
-    await supabase.from('habit_logs').delete().eq('id', id);
+    const { error } = await supabase.from('habit_logs').delete().eq('id', id);
+    if (error) {
+        console.error("Error deleting log:", error);
+        alert("Failed to delete log.");
+        return;
+    }
     await fetchUserData();
   };
 
@@ -284,6 +303,7 @@ const App: React.FC = () => {
             activePeriodDates={activePeriodDates} 
             referenceDate={referenceDate} 
             viewMode={viewMode} 
+            selectedHabitId={selectedHabitId}
             onNavigate={(dir) => {
                 const newDate = new Date(referenceDate);
                 if (viewMode === 'week') newDate.setDate(newDate.getDate() + (dir * 7));
