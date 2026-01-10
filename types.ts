@@ -4,6 +4,7 @@ export interface Profile {
   full_name: string;
   avatar_url: string;
   timezone: string;
+  notepad_content: string | null;
 }
 
 export interface Habit {

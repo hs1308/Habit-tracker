@@ -1,5 +1,6 @@
+
 import './style.css';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Menu, Play, History, Plus, AlertCircle } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { Habit, HabitLog, ActiveTimer, Profile } from './types';
@@ -12,6 +13,7 @@ import LogsView from './components/LogsView';
 import SettingsView from './components/SettingsView';
 import OnboardingView from './components/OnboardingView';
 import AuthView from './components/AuthView';
+import NotepadView from './components/NotepadView';
 import { getAttributedDate, getPeriodDates } from './utils/dateUtils';
 
 const App: React.FC = () => {
@@ -27,9 +29,16 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
   
-  const [currentView, setCurrentView] = useState<'dashboard' | 'logs' | 'settings'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'logs' | 'settings' | 'notepad'>('dashboard');
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [referenceDate, setReferenceDate] = useState(new Date());
+
+  // Notepad specific state
+  const [notepadContent, setNotepadContent] = useState('');
+  const [isNotepadSaving, setIsNotepadSaving] = useState(false);
+  const [lastNotepadSaved, setLastNotepadSaved] = useState<Date | null>(null);
+  const notepadSyncTimer = useRef<any>(null);
+  const hasLoadedInitialNotepad = useRef(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
@@ -55,6 +64,15 @@ const App: React.FC = () => {
       fetchProfile();
     }
   }, [session]);
+
+  // CRITICAL: Only pull notepad content from profile ONCE on login/load.
+  // This prevents local typing from being overwritten by database refreshes.
+  useEffect(() => {
+    if (profile?.notepad_content !== undefined && !hasLoadedInitialNotepad.current) {
+      setNotepadContent(profile.notepad_content || '');
+      hasLoadedInitialNotepad.current = true;
+    }
+  }, [profile?.notepad_content]);
 
   const fetchProfile = async () => {
     if (!session?.user || !supabase) return;
@@ -83,6 +101,32 @@ const App: React.FC = () => {
     const { error } = await supabase.from('profiles').update({ full_name: name }).eq('id', session.user.id);
     if (error) throw error;
     fetchProfile();
+  };
+
+  const syncNotepadToCloud = async (content: string) => {
+    if (!session?.user || !supabase) return;
+    setIsNotepadSaving(true);
+    
+    if (notepadSyncTimer.current) clearTimeout(notepadSyncTimer.current);
+    
+    notepadSyncTimer.current = setTimeout(async () => {
+      try {
+        const { error } = await supabase.from('profiles').update({ notepad_content: content }).eq('id', session.user.id);
+        if (error) throw error;
+        setLastNotepadSaved(new Date());
+        // Silent update to local profile ref
+        setProfile(prev => prev ? { ...prev, notepad_content: content } : null);
+      } catch (err) {
+        console.error("Notepad sync failed:", err);
+      } finally {
+        setIsNotepadSaving(false);
+      }
+    }, 1000);
+  };
+
+  const handleNotepadChange = (newContent: string) => {
+    setNotepadContent(newContent);
+    syncNotepadToCloud(newContent);
   };
 
   const activePeriodDates = useMemo(() => getPeriodDates(referenceDate, viewMode), [referenceDate, viewMode]);
@@ -196,7 +240,6 @@ const App: React.FC = () => {
     if (!supabase || !session?.user) return;
     
     const deletedAt = new Date().toISOString();
-    // Strengthened query with explicit user_id match
     const { error } = await supabase
       .from('habits')
       .update({ deleted_at: deletedAt })
@@ -205,7 +248,7 @@ const App: React.FC = () => {
     
     if (error) {
       console.error("Error archiving habit:", error);
-      throw error; // Rethrow to handle in component UI
+      throw error; 
     }
     
     if (selectedHabitId === id) setSelectedHabitId(null);
@@ -331,6 +374,16 @@ const App: React.FC = () => {
           onDeleteLog={handleDeleteLog} 
           onUpdateLog={(logId, habitId, start, end) => handleManualRecord(habitId, start, end, logId)} 
           onBack={() => setCurrentView('dashboard')} 
+        />
+      )}
+
+      {currentView === 'notepad' && (
+        <NotepadView 
+          content={notepadContent}
+          isSaving={isNotepadSaving}
+          lastSaved={lastNotepadSaved}
+          onChange={handleNotepadChange}
+          onBack={() => setCurrentView('dashboard')}
         />
       )}
       

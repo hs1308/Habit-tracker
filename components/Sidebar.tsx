@@ -1,13 +1,12 @@
-
 import React, { useState, useEffect } from 'react';
-import { X, LayoutDashboard, History, Settings, LogOut, Edit3, Check, Loader2 } from 'lucide-react';
+import { X, LayoutDashboard, History, Settings, LogOut, Edit3, Check, Loader2, StickyNote } from 'lucide-react';
 import { Profile } from '../types';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  currentView: 'dashboard' | 'logs' | 'settings';
-  onNavigate: (view: 'dashboard' | 'logs' | 'settings') => void;
+  currentView: 'dashboard' | 'logs' | 'settings' | 'notepad';
+  onNavigate: (view: 'dashboard' | 'logs' | 'settings' | 'notepad') => void;
   user: any;
   profile: Profile | null;
   onLogout: () => void;
@@ -38,6 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'logs', label: 'Activity Logs', icon: History },
     { id: 'settings', label: 'Habit Settings', icon: Settings },
+    { id: 'notepad', label: 'Scratchpad', icon: StickyNote },
   ] as const;
 
   const handleSaveNickname = async () => {
@@ -75,7 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div>
                 <h2 className="font-bold text-lg">BeConsistent</h2>
-                <p className="text-xs text-slate-500">v1.1.0</p>
+                <p className="text-xs text-slate-500">v1.2.0</p>
               </div>
             </div>
             <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all">

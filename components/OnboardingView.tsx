@@ -92,20 +92,28 @@ const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) => {
                 <Plus size={32} className="text-slate-500 group-hover:text-indigo-400" /><span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Custom</span>
               </button>
             ) : (
-              <div className="p-8 rounded-[3rem] border-2 border-indigo-500 bg-slate-900 animate-in zoom-in-95 duration-200 h-auto sm:min-h-48 flex flex-col justify-between shadow-2xl">
+              <div className="p-4 rounded-[2rem] border-2 border-indigo-500 bg-slate-900 animate-in zoom-in-95 duration-200 h-auto flex flex-col justify-between shadow-2xl relative">
                 <input 
-                  autoFocus type="text" value={newCustomName} onChange={(e) => setNewCustomName(e.target.value)}
-                  placeholder="Habit name..." className="w-full bg-slate-800 border border-slate-700 rounded-[1.5rem] px-6 py-5 text-2xl font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500 mb-6"
+                  autoFocus 
+                  type="text" 
+                  value={newCustomName} 
+                  onChange={(e) => setNewCustomName(e.target.value)}
+                  placeholder="Habit name..." 
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
                 />
-                <div className="flex flex-col gap-6">
-                  <div className="grid grid-cols-5 gap-4">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-wrap gap-2 justify-center">
                     {CUSTOM_COLORS.map(c => (
-                      <button key={c} onClick={() => setNewCustomColor(c)} className={`w-10 h-10 rounded-full shrink-0 ${c} ${newCustomColor === c ? 'ring-2 ring-white ring-offset-4 ring-offset-slate-900 scale-110' : ''}`} />
+                      <button 
+                        key={c} 
+                        onClick={() => setNewCustomColor(c)} 
+                        className={`w-6 h-6 rounded-full shrink-0 ${c} ${newCustomColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900 scale-110' : ''}`} 
+                      />
                     ))}
                   </div>
-                  <div className="flex gap-4 justify-end pt-4">
-                    <button onClick={() => setIsAddingCustom(false)} className="p-4 bg-slate-800 text-slate-400 rounded-2xl"><X size={28} /></button>
-                    <button onClick={addCustomHabit} className="p-4 bg-indigo-600 text-white rounded-2xl shadow-xl shadow-indigo-600/30"><CheckCircle2 size={28} /></button>
+                  <div className="flex gap-2 justify-end pt-2">
+                    <button onClick={() => setIsAddingCustom(false)} className="p-2 bg-slate-800 text-slate-400 rounded-xl hover:text-white transition-colors"><X size={18} /></button>
+                    <button onClick={addCustomHabit} className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-600/30 transition-all"><CheckCircle2 size={18} /></button>
                   </div>
                 </div>
               </div>

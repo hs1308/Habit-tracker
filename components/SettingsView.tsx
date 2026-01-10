@@ -116,28 +116,28 @@ const SettingsView: React.FC<SettingsViewProps> = ({ habits, onAddHabit, onDelet
                 <span className="text-[10px] font-black text-slate-500 group-hover:text-indigo-400 uppercase tracking-widest">Custom</span>
               </button>
             ) : (
-              <div className="col-span-2 sm:col-span-1 p-6 rounded-[2.5rem] border-2 border-indigo-500 bg-slate-900 flex flex-col justify-between min-h-[160px] animate-in zoom-in-95 shadow-2xl">
+              <div className="col-span-2 sm:col-span-1 p-4 rounded-[2rem] border-2 border-indigo-500 bg-slate-900 flex flex-col justify-between animate-in zoom-in-95 shadow-2xl h-auto">
                 <input 
                   autoFocus
                   type="text"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="Name..."
-                  className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-xl font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
                 />
-                <div className="flex items-center justify-between gap-4">
-                  <div className="grid grid-cols-5 gap-3">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-wrap gap-2 justify-center">
                     {CUSTOM_COLORS.map(c => (
                       <button 
                         key={c}
                         onClick={() => setSelectedColor(c)}
-                        className={`w-8 h-8 rounded-full shrink-0 ${c} ${selectedColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900 scale-110' : ''}`}
+                        className={`w-6 h-6 rounded-full shrink-0 ${c} ${selectedColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900 scale-110' : ''}`}
                       />
                     ))}
                   </div>
-                  <div className="flex gap-3 shrink-0">
-                    <button onClick={() => setShowCustomForm(false)} className="p-3 bg-slate-800 text-slate-400 rounded-2xl hover:text-white transition-colors"><X size={24} /></button>
-                    <button onClick={handleCustomSubmit} className="p-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20"><CheckCircle2 size={24} /></button>
+                  <div className="flex gap-2 justify-end pt-2">
+                    <button onClick={() => setShowCustomForm(false)} className="p-2 bg-slate-800 text-slate-400 rounded-xl hover:text-white transition-colors"><X size={18} /></button>
+                    <button onClick={handleCustomSubmit} className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20"><CheckCircle2 size={18} /></button>
                   </div>
                 </div>
               </div>
