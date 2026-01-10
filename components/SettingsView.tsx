@@ -39,8 +39,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ habits, onAddHabit, onDelet
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [selectedColor, setSelectedColor] = useState(CUSTOM_COLORS[0]);
-  
-  // States for deletion handling
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -75,7 +73,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ habits, onAddHabit, onDelet
     try {
       await onDeleteHabit(id);
     } catch (err) {
-      alert("Database Error: Could not archive habit. Check your connection.");
+      alert("Database Error.");
     } finally {
       setDeletingId(null);
     }
@@ -91,11 +89,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ habits, onAddHabit, onDelet
           <h2 className="text-2xl font-bold">Your Habits</h2>
         </div>
         {!isAdding && (
-          <button 
-            onClick={() => setIsAdding(true)}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-indigo-600/20 transition-all"
-          >
-            <Plus size={18} /> Add New
+          <button onClick={() => setIsAdding(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-indigo-600/20 transition-all">
+            <Plus size={20} /> Add New
           </button>
         )}
       </div>
@@ -103,63 +98,46 @@ const SettingsView: React.FC<SettingsViewProps> = ({ habits, onAddHabit, onDelet
       {isAdding && (
         <div className="space-y-6 mb-12 animate-in zoom-in-95 duration-200">
           <div className="flex items-center justify-between">
-             <h3 className="text-lg font-black italic flex items-center gap-2 text-indigo-400">
-               <Sparkles size={18} /> Select Your Habit
-             </h3>
-             <button onClick={() => { setIsAdding(false); setShowCustomForm(false); }} className="text-slate-500 hover:text-white">
-               <X size={20} />
-             </button>
+             <h3 className="text-lg font-black italic flex items-center gap-2 text-indigo-400"><Sparkles size={20} /> Select Your Habit</h3>
+             <button onClick={() => { setIsAdding(false); setShowCustomForm(false); }} className="text-slate-500 hover:text-white"><X size={24} /></button>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {PRESET_SUGGESTIONS.map((preset) => (
-              <button
-                key={preset.name}
-                onClick={() => handleAddPreset(preset.name, preset.color)}
-                className="p-4 rounded-3xl border border-slate-800 bg-slate-900 hover:border-indigo-500 transition-all text-left h-28 flex flex-col justify-between group"
-              >
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${preset.color} bg-opacity-20`}>
-                  <div className={`w-2 h-2 rounded-full ${preset.color}`} />
-                </div>
+              <button key={preset.name} onClick={() => handleAddPreset(preset.name, preset.color)} className="p-5 rounded-[2rem] border border-slate-800 bg-slate-900 hover:border-indigo-500 transition-all text-left h-32 flex flex-col justify-between group">
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${preset.color} bg-opacity-20`}><div className={`w-2 h-2 rounded-full ${preset.color}`} /></div>
                 <p className="font-bold text-slate-300 group-hover:text-white truncate">{preset.name}</p>
               </button>
             ))}
 
             {!showCustomForm ? (
-              <button
-                onClick={() => setShowCustomForm(true)}
-                className="p-4 rounded-3xl border border-dashed border-slate-700 hover:border-indigo-500 bg-slate-900/50 transition-all flex flex-col items-center justify-center gap-2 h-28 group"
-              >
-                <Plus size={20} className="text-slate-500 group-hover:text-indigo-400" />
+              <button onClick={() => setShowCustomForm(true)} className="p-5 rounded-[2rem] border border-dashed border-slate-700 hover:border-indigo-500 bg-slate-900/50 transition-all flex flex-col items-center justify-center gap-2 h-32 group">
+                <Plus size={24} className="text-slate-500 group-hover:text-indigo-400" />
                 <span className="text-[10px] font-black text-slate-500 group-hover:text-indigo-400 uppercase tracking-widest">Custom</span>
               </button>
             ) : (
-              <div className="col-span-2 sm:col-span-1 p-5 rounded-3xl border-2 border-indigo-500 bg-slate-900 flex flex-col justify-between min-h-[140px] animate-in zoom-in-95">
+              <div className="col-span-2 sm:col-span-1 p-6 rounded-[2.5rem] border-2 border-indigo-500 bg-slate-900 flex flex-col justify-between min-h-[160px] animate-in zoom-in-95 shadow-2xl">
                 <input 
                   autoFocus
                   type="text"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="Name..."
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-xl font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
                 />
-                <div className="flex items-center justify-between gap-3">
-                  <div className="grid grid-cols-5 gap-2">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="grid grid-cols-5 gap-3">
                     {CUSTOM_COLORS.map(c => (
                       <button 
                         key={c}
                         onClick={() => setSelectedColor(c)}
-                        className={`w-5 h-5 rounded-full shrink-0 ${c} ${selectedColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''}`}
+                        className={`w-8 h-8 rounded-full shrink-0 ${c} ${selectedColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900 scale-110' : ''}`}
                       />
                     ))}
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    <button onClick={() => setShowCustomForm(false)} className="p-2 bg-slate-800 text-slate-400 rounded-xl hover:text-white transition-colors" title="Cancel">
-                      <X size={18} />
-                    </button>
-                    <button onClick={handleCustomSubmit} className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20" title="Save Habit">
-                      <CheckCircle2 size={18} />
-                    </button>
+                  <div className="flex gap-3 shrink-0">
+                    <button onClick={() => setShowCustomForm(false)} className="p-3 bg-slate-800 text-slate-400 rounded-2xl hover:text-white transition-colors"><X size={24} /></button>
+                    <button onClick={handleCustomSubmit} className="p-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20"><CheckCircle2 size={24} /></button>
                   </div>
                 </div>
               </div>
@@ -171,59 +149,15 @@ const SettingsView: React.FC<SettingsViewProps> = ({ habits, onAddHabit, onDelet
 
       <div className="space-y-4">
         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Tracking Now</h4>
-        {activeHabits.length === 0 ? (
-          <p className="text-sm text-slate-500 italic py-4 text-center">No active habits. Add one above.</p>
-        ) : (
-          activeHabits.map((habit) => (
-            <div 
-              key={habit.id} 
-              className={`bg-slate-900 border p-5 rounded-3xl flex items-center justify-between group transition-all ${
-                confirmingId === habit.id ? 'border-orange-500/50 bg-orange-500/5' : 'border-slate-800 hover:border-slate-700'
-              }`}
-            >
-              <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-2xl ${habit.color} bg-opacity-20 flex items-center justify-center`}>
-                  <div className={`w-3 h-3 rounded-full ${habit.color} shadow-lg shadow-black/20`} />
-                </div>
-                <div>
-                  <p className="font-bold text-lg text-slate-100">{habit.name}</p>
-                  <p className="text-xs text-slate-500">Focusing everyday</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                {deletingId === habit.id ? (
-                  <div className="p-3">
-                    <Loader2 size={20} className="animate-spin text-indigo-400" />
-                  </div>
-                ) : confirmingId === habit.id ? (
-                  <div className="flex items-center gap-2 animate-in slide-in-from-right-2">
-                    <button 
-                      onClick={() => executeDelete(habit.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-[10px] font-black uppercase rounded-lg transition-all"
-                    >
-                      Confirm
-                    </button>
-                    <button 
-                      onClick={() => setConfirmingId(null)}
-                      className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-lg"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ) : (
-                  <button 
-                    onClick={() => setConfirmingId(habit.id)}
-                    className="p-3 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
-                    title="Archive habit"
-                  >
-                    <Trash2 size={20} />
-                  </button>
-                )}
-              </div>
+        {activeHabits.map((habit) => (
+          <div key={habit.id} className={`bg-slate-900 border p-5 rounded-[2rem] flex items-center justify-between group transition-all ${confirmingId === habit.id ? 'border-orange-500/50 bg-orange-500/5' : 'border-slate-800 hover:border-slate-700'}`}>
+            <div className="flex items-center gap-4">
+              <div className={`w-14 h-14 rounded-2xl ${habit.color} bg-opacity-20 flex items-center justify-center`}><div className={`w-3 h-3 rounded-full ${habit.color}`} /></div>
+              <div><p className="font-bold text-lg text-slate-100">{habit.name}</p><p className="text-xs text-slate-500">Active Habit</p></div>
             </div>
-          ))
-        )}
+            <button onClick={() => setConfirmingId(habit.id)} className="p-3 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><Trash2 size={20} /></button>
+          </div>
+        ))}
       </div>
     </div>
   );

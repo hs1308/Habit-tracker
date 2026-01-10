@@ -44,17 +44,14 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
   const [viewType, setViewType] = useState<'total' | 'split'>('total');
   const [breakdownDay, setBreakdownDay] = useState<string | null>(null);
   
-  // Ref to track touch start position for scroll vs tap detection
-  const touchStartPos = useRef<{ x: number, y: number } | null>(null);
+  // Ref to track pointer movements for scroll vs tap detection
+  const pointerStart = useRef<{ x: number, y: number } | null>(null);
+  const didMove = useRef(false);
 
-  // If a habit is selected, force total view since split is redundant
   useEffect(() => {
-    if (selectedHabitId) {
-      setViewType('total');
-    }
+    if (selectedHabitId) setViewType('total');
   }, [selectedHabitId]);
 
-  // Filter logs by selected habit if one is chosen
   const filteredLogs = useMemo(() => {
     if (!selectedHabitId) return logs;
     return logs.filter(log => log.habit_id === selectedHabitId);
@@ -66,13 +63,10 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       .reduce((sum, log) => sum + log.duration_seconds, 0);
   }, [filteredLogs, activePeriodDates]);
 
-  // Find all habits that have logs in this period (respecting the filter)
   const activeHabitIdsInPeriod = useMemo(() => {
     const ids = new Set<string>();
     filteredLogs.forEach(log => {
-      if (activePeriodDates.includes(log.attributed_date)) {
-        ids.add(log.habit_id);
-      }
+      if (activePeriodDates.includes(log.attributed_date)) ids.add(log.habit_id);
     });
     return Array.from(ids);
   }, [filteredLogs, activePeriodDates]);
@@ -82,21 +76,17 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
     return activePeriodDates.map(date => {
       const dayLogs = filteredLogs.filter(log => log.attributed_date === date);
       const totalSeconds = dayLogs.reduce((sum, log) => sum + log.duration_seconds, 0);
-      
       const data: any = {
         date,
         name: getDayName(date),
         totalHours: parseFloat((totalSeconds / 3600).toFixed(2)),
         totalSeconds: totalSeconds
       };
-
-      // Breakdown by habit for split view
       activeHabitIdsInPeriod.forEach(habitId => {
         const habitLogs = dayLogs.filter(l => l.habit_id === habitId);
         const habitSeconds = habitLogs.reduce((sum, l) => sum + l.duration_seconds, 0);
         data[habitId] = parseFloat((habitSeconds / 3600).toFixed(2));
       });
-
       return data;
     });
   }, [filteredLogs, activePeriodDates, viewMode, activeHabitIdsInPeriod]);
@@ -123,7 +113,6 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       return (
         <div className="bg-slate-800 border border-slate-700 p-3 rounded-lg shadow-xl min-w-[140px]">
           <p className="text-slate-400 text-[10px] mb-2 font-bold uppercase tracking-widest">{getDayName(data.date)} {data.date}</p>
-          
           {viewType === 'total' ? (
             <p className="text-indigo-400 font-bold text-lg">{formatDuration(data.totalSeconds)}</p>
           ) : (
@@ -142,10 +131,6 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                   </div>
                 );
               })}
-              <div className="pt-2 border-t border-slate-700 flex justify-between">
-                <span className="text-[10px] font-black text-slate-500 uppercase">Total</span>
-                <span className="text-[10px] font-black text-indigo-400">{formatDuration(data.totalSeconds)}</span>
-              </div>
             </div>
           )}
         </div>
@@ -163,28 +148,22 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
     }).filter(b => b.seconds > 0);
   };
 
-  // Helper to handle both click and touch correctly
-  const handleDayInteraction = (date: string, isFromTouch = false) => {
-    setBreakdownDay(prev => prev === date ? null : date);
+  const onPointerDown = (e: React.PointerEvent) => {
+    pointerStart.current = { x: e.clientX, y: e.clientY };
+    didMove.current = false;
   };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!pointerStart.current) return;
+    const dist = Math.sqrt(Math.pow(e.clientX - pointerStart.current.x, 2) + Math.pow(e.clientY - pointerStart.current.y, 2));
+    if (dist > 6) didMove.current = true;
   };
 
-  const handleTouchEnd = (e: React.TouchEvent, date: string) => {
-    if (!touchStartPos.current) return;
-    
-    const touchEnd = e.changedTouches[0];
-    const dx = Math.abs(touchEnd.clientX - touchStartPos.current.x);
-    const dy = Math.abs(touchEnd.clientY - touchStartPos.current.y);
-    
-    touchStartPos.current = null;
-
-    // 10px threshold to distinguish between tap and scroll
-    if (dx < 10 && dy < 10) {
-      handleDayInteraction(date, true);
+  const onPointerUp = (e: React.PointerEvent, date: string) => {
+    if (!didMove.current) {
+      setBreakdownDay(prev => prev === date ? null : date);
     }
+    pointerStart.current = null;
   };
 
   return (
@@ -201,57 +180,19 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
           <div className="flex gap-4">
             {viewMode === 'week' && !selectedHabitId && (
               <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800">
-                <button 
-                  onClick={() => setViewType('total')}
-                  className={`p-1.5 rounded-lg transition-all flex items-center gap-2 px-3 ${viewType === 'total' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                  title="Aggregate View"
-                >
-                  <BarChart2 size={14} />
-                  <span className="text-[10px] font-black uppercase">Total</span>
-                </button>
-                <button 
-                  onClick={() => setViewType('split')}
-                  className={`p-1.5 rounded-lg transition-all flex items-center gap-2 px-3 ${viewType === 'split' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                  title="Habit Breakdown"
-                >
-                  <LayoutGrid size={14} />
-                  <span className="text-[10px] font-black uppercase">Split</span>
-                </button>
+                <button onClick={() => setViewType('total')} className={`p-1.5 rounded-lg transition-all flex items-center gap-2 px-3 ${viewType === 'total' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><BarChart2 size={14} /><span className="text-[10px] font-black uppercase">Total</span></button>
+                <button onClick={() => setViewType('split')} className={`p-1.5 rounded-lg transition-all flex items-center gap-2 px-3 ${viewType === 'split' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><LayoutGrid size={14} /><span className="text-[10px] font-black uppercase">Split</span></button>
               </div>
             )}
-
             <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
-              <button 
-                onClick={() => onViewChange('week')}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'week' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}
-              >
-                Week
-              </button>
-              <button 
-                onClick={() => onViewChange('month')}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'month' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}
-              >
-                Month
-              </button>
+              <button onClick={() => onViewChange('week')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'week' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}>Week</button>
+              <button onClick={() => onViewChange('month')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'month' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}>Month</button>
             </div>
           </div>
-          
           <div className="flex items-center gap-4">
-             <button 
-              onClick={() => onNavigate(-1)}
-              className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
-             >
-               <ChevronLeft size={18} />
-             </button>
-             <span className="text-sm font-semibold text-slate-300 min-w-[140px] text-center">
-               {getPeriodLabel(referenceDate, viewMode)}
-             </span>
-             <button 
-              onClick={() => onNavigate(1)}
-              className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
-             >
-               <ChevronRight size={18} />
-             </button>
+             <button onClick={() => onNavigate(-1)} className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"><ChevronLeft size={18} /></button>
+             <span className="text-sm font-semibold text-slate-300 min-w-[140px] text-center">{getPeriodLabel(referenceDate, viewMode)}</span>
+             <button onClick={() => onNavigate(1)} className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"><ChevronRight size={18} /></button>
           </div>
         </div>
       </div>
@@ -260,44 +201,21 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={weekChartData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-              <XAxis 
-                dataKey="name" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#64748b', fontSize: 10 }}
-                dy={10}
-                interval={0}
-              />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} dy={10} interval={0} />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-              
               {viewType === 'total' ? (
                 <Bar dataKey="totalHours" radius={[4, 4, 4, 4]}>
                   {weekChartData.map((entry, index) => {
                     const habit = selectedHabitId ? habits.find(h => h.id === selectedHabitId) : null;
                     const fillColor = habit ? (COLOR_MAP[habit.color] || '#6366f1') : '#6366f1';
-                    return (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.totalHours > 0 ? fillColor : '#334155'} 
-                        className="transition-all duration-300 hover:opacity-80"
-                      />
-                    );
+                    return <Cell key={`cell-${index}`} fill={entry.totalHours > 0 ? fillColor : '#334155'} />;
                   })}
                 </Bar>
               ) : (
                 activeHabitIdsInPeriod.map((habitId, idx) => {
                   const habit = habits.find(h => h.id === habitId);
                   const color = COLOR_MAP[habit?.color || 'bg-indigo-500'] || '#6366f1';
-                  
-                  return (
-                    <Bar 
-                      key={habitId}
-                      dataKey={habitId} 
-                      stackId="a" 
-                      fill={color}
-                      radius={idx === activeHabitIdsInPeriod.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
-                    />
-                  );
+                  return <Bar key={habitId} dataKey={habitId} stackId="a" fill={color} radius={idx === activeHabitIdsInPeriod.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />;
                 })
               )}
             </BarChart>
@@ -308,75 +226,47 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       {viewMode === 'month' && (
         <div className="w-full relative">
           <div className="grid grid-cols-7 gap-y-4 text-center">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-              <div key={d} className="text-[10px] uppercase font-bold text-slate-600 mb-2">
-                {d}
-              </div>
-            ))}
-            
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="text-[10px] uppercase font-bold text-slate-600 mb-2">{d}</div>)}
             {calendarGrid.map((item, idx) => {
               if (!item) return <div key={`empty-${idx}`} className="aspect-square" />;
-              
               const dayLogs = filteredLogs.filter(log => log.attributed_date === item.date);
               const daySeconds = dayLogs.reduce((sum, log) => sum + log.duration_seconds, 0);
               const hasActivity = daySeconds > 0;
-              const relativeSize = hasActivity ? (daySeconds / maxDaySeconds) : 0;
-              const scaleFactor = hasActivity ? 0.6 + (relativeSize * 1.2) : 0;
-
-              // Use specific habit color if filtered
+              const scaleFactor = hasActivity ? 0.6 + ((daySeconds / maxDaySeconds) * 1.2) : 0;
               const habit = selectedHabitId ? habits.find(h => h.id === selectedHabitId) : null;
               const circleColor = habit ? (COLOR_MAP[habit.color] || '#6366f1') : '#6366f1';
 
               return (
                 <div 
                   key={item.date} 
-                  className="relative aspect-square flex items-center justify-center cursor-pointer group/cell"
-                  onMouseEnter={() => setBreakdownDay(item.date)}
+                  className="relative aspect-square flex items-center justify-center cursor-pointer select-none touch-none"
+                  onPointerDown={onPointerDown}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={(e) => onPointerUp(e, item.date)}
+                  onMouseEnter={(e) => { if (e.pointerType === 'mouse') setBreakdownDay(item.date); }}
                   onMouseLeave={() => setBreakdownDay(null)}
-                  onTouchStart={handleTouchStart}
-                  onTouchEnd={(e) => handleTouchEnd(e, item.date)}
-                  onClick={(e) => {
-                    // Only trigger onClick if it's not from a touch (i.e. mouse)
-                    // touchEnd handles mobile logic
-                    if (e.detail > 0) handleDayInteraction(item.date);
-                  }}
                 >
                   {hasActivity && (
-                    <div 
-                      className="absolute rounded-full backdrop-blur-[2px] transition-all duration-500 ease-out"
-                      style={{ 
-                        width: '70%', 
-                        height: '70%', 
-                        transform: `scale(${scaleFactor})`,
-                        zIndex: 0,
-                        backgroundColor: `${circleColor}66`, // 40% opacity hex suffix
-                        border: `1px solid ${circleColor}33` // 20% opacity
-                      }}
+                    <div className="absolute rounded-full transition-all duration-500 ease-out"
+                      style={{ width: '70%', height: '70%', transform: `scale(${scaleFactor})`, zIndex: 0, backgroundColor: `${circleColor}66`, border: `1px solid ${circleColor}33` }}
                     />
                   )}
-                  <span className={`relative z-10 text-sm font-medium ${hasActivity ? 'text-white font-bold' : 'text-slate-500'}`}>
-                    {item.day}
-                  </span>
-
-                  {/* Popover Breakdown */}
+                  <span className={`relative z-10 text-sm font-medium ${hasActivity ? 'text-white font-bold' : 'text-slate-500'}`}>{item.day}</span>
                   {breakdownDay === item.date && hasActivity && (
-                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[100] bg-slate-800 border border-slate-700 p-3 rounded-xl shadow-2xl min-w-[160px] animate-in zoom-in-90 fade-in duration-200 pointer-events-none">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">{getDayName(item.date)} {item.date}</p>
-                      <div className="space-y-1.5">
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[100] bg-slate-800 border border-slate-700 p-4 rounded-2xl shadow-2xl min-w-[180px] animate-in zoom-in-90 fade-in duration-200 pointer-events-none">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{getDayName(item.date)} {item.date}</p>
+                      <div className="space-y-2">
                         {getDayBreakdown(item.date).map(b => (
                           <div key={b.id} className="flex items-center justify-between gap-3 text-left">
                             <div className="flex items-center gap-1.5 overflow-hidden">
                               <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: COLOR_MAP[b.color || 'bg-indigo-500'] || '#6366f1' }} />
-                              <span className="text-[10px] font-bold text-slate-200 truncate">{b.name}</span>
+                              <span className="text-[11px] font-bold text-slate-200 truncate">{b.name}</span>
                             </div>
-                            <span className="text-[10px] font-black text-white whitespace-nowrap">{formatDuration(b.seconds)}</span>
+                            <span className="text-[11px] font-black text-white whitespace-nowrap">{formatDuration(b.seconds)}</span>
                           </div>
                         ))}
                       </div>
-                      <div className="mt-2 pt-2 border-t border-slate-700 flex justify-between">
-                        <span className="text-[9px] font-black text-slate-500 uppercase">Daily Total</span>
-                        <span className="text-[9px] font-black text-indigo-400">{formatDuration(daySeconds)}</span>
-                      </div>
+                      <div className="mt-2 pt-2 border-t border-slate-700 flex justify-between"><span className="text-[9px] font-black text-slate-500 uppercase">Total</span><span className="text-[9px] font-black text-indigo-400">{formatDuration(daySeconds)}</span></div>
                     </div>
                   )}
                 </div>
