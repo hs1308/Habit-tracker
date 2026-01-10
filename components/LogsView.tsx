@@ -16,8 +16,13 @@ const LogsView: React.FC<LogsViewProps> = ({ logs, habits, onDeleteLog, onUpdate
   const [editingLog, setEditingLog] = useState<HabitLog | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   
-  const [filterStart, setFilterStart] = useState<string>(getAttributedDate(getStartOfWeek(new Date())));
-  const [filterEnd, setFilterEnd] = useState<string>(getAttributedDate(getEndOfWeek(new Date())));
+  // Default to last 7 days (today and 6 previous days)
+  const [filterStart, setFilterStart] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 6);
+    return getAttributedDate(d);
+  });
+  const [filterEnd, setFilterEnd] = useState<string>(getAttributedDate(new Date()));
 
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
@@ -31,6 +36,14 @@ const LogsView: React.FC<LogsViewProps> = ({ logs, habits, onDeleteLog, onUpdate
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
     return `${months[start.getMonth()]} ${start.getDate()} - ${months[end.getMonth()]} ${end.getDate()}`;
+  };
+
+  const handleResetToLast7Days = () => {
+    const today = new Date();
+    const start = new Date();
+    start.setDate(today.getDate() - 6);
+    setFilterStart(getAttributedDate(start));
+    setFilterEnd(getAttributedDate(today));
   };
 
   return (
@@ -103,13 +116,10 @@ const LogsView: React.FC<LogsViewProps> = ({ logs, habits, onDeleteLog, onUpdate
           <h3 className="text-lg font-bold mb-2">No logs for this period</h3>
           <p className="text-slate-500 text-sm">Adjust your date range or record activity to see logs here.</p>
           <button 
-            onClick={() => {
-              setFilterStart(getAttributedDate(getStartOfWeek(new Date())));
-              setFilterEnd(getAttributedDate(getEndOfWeek(new Date())));
-            }}
+            onClick={handleResetToLast7Days}
             className="mt-6 text-indigo-400 font-bold text-xs uppercase tracking-widest hover:text-indigo-300 transition-colors"
           >
-            Reset to This Week
+            Reset to Last 7 Days
           </button>
         </div>
       ) : (

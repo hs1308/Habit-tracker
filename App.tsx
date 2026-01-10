@@ -312,10 +312,13 @@ const App: React.FC = () => {
         onUpdateNickname={updateNickname}
       />
       <header className="py-5 flex justify-between items-center sticky top-0 bg-[#0f172a]/90 backdrop-blur-xl z-40 border-b border-white/5">
-        <div className="max-w-md w-full flex flex-col items-start">
+        <button 
+          onClick={() => setCurrentView('dashboard')}
+          className="max-w-md w-full flex flex-col items-start hover:opacity-80 transition-opacity text-left"
+        >
           <h1 className="text-3xl font-black text-white">Be Consistent</h1>
           <p className="text-[10px] text-slate-500 font-medium italic">Do some action everyday, however small</p>
-        </div>
+        </button>
         <button onClick={() => setIsSidebarOpen(true)} className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center">
           <Menu size={24} className="text-slate-400" />
         </button>
