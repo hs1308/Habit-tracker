@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Rectangle } from 'recharts';
 import { getDayName, formatDuration, getPeriodLabel, getCalendarGrid } from '../utils/dateUtils';
 import { HabitLog, Habit } from '../types';
 import { ChevronLeft, ChevronRight, LayoutGrid, BarChart2 } from 'lucide-react';
@@ -45,7 +45,6 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
   const [viewType, setViewType] = useState<'total' | 'split'>('total');
   const [breakdownDay, setBreakdownDay] = useState<string | null>(null);
   
-  // Ref to track pointer movements for scroll vs tap detection
   const pointerStart = useRef<{ x: number, y: number } | null>(null);
   const didMove = useRef(false);
 
@@ -64,12 +63,13 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       .reduce((sum, log) => sum + log.duration_seconds, 0);
   }, [filteredLogs, activePeriodDates]);
 
+  // STABLE SORTING: Alphabetical sort ensures the stack order is identical every time.
   const activeHabitIdsInPeriod = useMemo(() => {
     const ids = new Set<string>();
     filteredLogs.forEach(log => {
       if (activePeriodDates.includes(log.attributed_date)) ids.add(log.habit_id);
     });
-    return Array.from(ids);
+    return Array.from(ids).sort();
   }, [filteredLogs, activePeriodDates]);
 
   const weekChartData = useMemo(() => {
@@ -91,6 +91,25 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       return data;
     });
   }, [filteredLogs, activePeriodDates, viewMode, activeHabitIdsInPeriod]);
+
+  // Custom shape for "Split" view: Ensures curves only on the true top/bottom of the day's entire stack.
+  const renderStackedBar = (props: any) => {
+    const { x, y, width, height, payload, dataKey } = props;
+    if (!height || height <= 0) return null;
+
+    const currentDayActiveKeys = activeHabitIdsInPeriod.filter(id => (payload[id] || 0) > 0);
+    const isBottom = dataKey === currentDayActiveKeys[0];
+    const isTop = dataKey === currentDayActiveKeys[currentDayActiveKeys.length - 1];
+    const r = 4; 
+    const radius: [number, number, number, number] = [
+      isTop ? r : 0,
+      isTop ? r : 0,
+      isBottom ? r : 0,
+      isBottom ? r : 0
+    ];
+
+    return <Rectangle {...props} radius={radius} />;
+  };
 
   const calendarGrid = useMemo(() => {
     if (viewMode !== 'month') return [];
@@ -201,9 +220,18 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       {viewMode === 'week' && (
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={weekChartData} margin={{ top: 0, right: 8, left: -25, bottom: 0 }}>
+            <BarChart data={weekChartData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} dy={10} interval={0} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} orientation="left" width={40} tickCount={4} allowDecimals={false} />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: '#64748b', fontSize: 10 }} 
+                orientation="left" 
+                width={32} 
+                tickCount={4} 
+                allowDecimals={false}
+                domain={[0, 'auto']}
+              />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
               {viewType === 'total' ? (
                 <Bar dataKey="totalHours" radius={[4, 4, 4, 4]}>
@@ -214,11 +242,17 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                   })}
                 </Bar>
               ) : (
-                activeHabitIdsInPeriod.map((habitId, idx) => {
-                  const habit = habits.find(h => h.id === habitId);
-                  const color = COLOR_MAP[habit?.color || 'bg-indigo-500'] || '#6366f1';
-                  return <Bar key={habitId} dataKey={habitId} stackId="a" fill={color} radius={idx === activeHabitIdsInPeriod.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />;
-                })
+                <>
+                  {/* Anchor Bar: Forces Recharts to render the Y-axis when no habits have logs yet */}
+                  {activeHabitIdsInPeriod.length === 0 && (
+                    <Bar dataKey="totalHours" hide />
+                  )}
+                  {activeHabitIdsInPeriod.map((habitId) => {
+                    const habit = habits.find(h => h.id === habitId);
+                    const color = COLOR_MAP[habit?.color || 'bg-indigo-500'] || '#6366f1';
+                    return <Bar key={habitId} dataKey={habitId} stackId="a" fill={color} shape={renderStackedBar} />;
+                  })}
+                </>
               )}
             </BarChart>
           </ResponsiveContainer>
