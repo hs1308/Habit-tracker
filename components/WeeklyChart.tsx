@@ -1,5 +1,6 @@
+
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { getDayName, formatDuration, getPeriodLabel, getCalendarGrid } from '../utils/dateUtils';
 import { HabitLog, Habit } from '../types';
 import { ChevronLeft, ChevronRight, LayoutGrid, BarChart2 } from 'lucide-react';
@@ -200,8 +201,9 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       {viewMode === 'week' && (
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={weekChartData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+            <BarChart data={weekChartData} margin={{ top: 0, right: 8, left: -25, bottom: 0 }}>
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} dy={10} interval={0} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} orientation="left" width={40} tickCount={4} allowDecimals={false} />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
               {viewType === 'total' ? (
                 <Bar dataKey="totalHours" radius={[4, 4, 4, 4]}>
