@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, StickyNote, Trash2, CheckCircle2, Cloud } from 'lucide-react';
 
@@ -58,7 +59,7 @@ const NotepadView: React.FC<NotepadViewProps> = ({ content, isSaving, lastSaved,
           value={content}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Start typing your thoughts, paste links, or draft ideas here... everything is auto-saved."
-          className="w-full h-full bg-slate-900/50 border border-slate-800 rounded-[2rem] p-8 text-lg text-slate-200 leading-relaxed outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all resize-none placeholder:text-slate-600 placeholder:italic"
+          className="w-full h-full bg-slate-900/50 border border-slate-800 rounded-[2rem] p-8 text-base text-slate-200 leading-relaxed outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all resize-none placeholder:text-slate-600 placeholder:italic"
         />
         
         <div className="absolute bottom-6 right-8 text-[10px] font-black text-slate-700 uppercase tracking-widest pointer-events-none">

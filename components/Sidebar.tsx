@@ -71,10 +71,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex justify-between items-center mb-10">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20">
-                BC
+                JS
               </div>
               <div>
-                <h2 className="font-bold text-lg">BeConsistent</h2>
+                <h2 className="font-bold text-lg">Just Show Up</h2>
                 <p className="text-xs text-slate-500">v1.2.0</p>
               </div>
             </div>

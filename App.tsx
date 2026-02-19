@@ -1,3 +1,4 @@
+
 import './style.css';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Menu, Play, History, Plus, AlertCircle, StickyNote, ChevronRight } from 'lucide-react';
@@ -294,7 +295,7 @@ const App: React.FC = () => {
     </div>
   );
 
-  if (habits.length === 0) return <OnboardingView onComplete={handleOnboardingComplete} />;
+  if (habits.length === 0) return <OnboardingView onComplete={handleOnboardingComplete} onLogout={handleLogout} />;
 
   const activeTimerHabit = habits.find(h => h.id === activeTimer?.habitId);
 
@@ -315,8 +316,8 @@ const App: React.FC = () => {
           onClick={() => setCurrentView('dashboard')}
           className="max-w-md flex flex-col items-start transition-all active:scale-[0.98] text-left md:hover:opacity-80 active:opacity-70"
         >
-          <h1 className="text-3xl font-black text-white">Be Consistent</h1>
-          <p className="text-[10px] text-slate-500 font-medium italic">Do some action everyday, however small</p>
+          <h1 className="text-3xl font-black text-white">Just Show Up</h1>
+          <p className="text-[10px] text-slate-500 font-medium italic">Especially when you really don't want to</p>
         </button>
         <button onClick={() => setIsSidebarOpen(true)} className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center">
           <Menu size={24} className="text-slate-400" />

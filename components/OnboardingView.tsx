@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Sparkles, Loader2, AlertCircle, Copy, CheckCircle2, Database, Plus, X, Tag } from 'lucide-react';
+import { Sparkles, Loader2, AlertCircle, Copy, CheckCircle2, Database, Plus, X, Tag, ChevronLeft } from 'lucide-react';
 
 interface HabitConfig {
   name: string;
@@ -9,6 +10,7 @@ interface HabitConfig {
 
 interface OnboardingViewProps {
   onComplete: (habits: HabitConfig[]) => Promise<void>;
+  onLogout?: () => void;
 }
 
 const PRESET_SUGGESTIONS: HabitConfig[] = [
@@ -36,9 +38,7 @@ const CUSTOM_COLORS = [
   'bg-rose-500'
 ];
 
-const SETUP_SQL = `-- setup sql --`;
-
-const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) => {
+const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete, onLogout }) => {
   const [selectedPresets, setSelectedPresets] = useState<string[]>([]);
   const [customHabits, setCustomHabits] = useState<HabitConfig[]>([]);
   const [isAddingCustom, setIsAddingCustom] = useState(false);
@@ -62,11 +62,22 @@ const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-6 animate-in fade-in duration-700">
+    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-6 animate-in fade-in duration-700 relative">
+      {onLogout && (
+        <button 
+          onClick={onLogout}
+          className="absolute top-8 left-8 p-3 bg-slate-900 border border-slate-800 rounded-2xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all flex items-center gap-2 group"
+        >
+          <ChevronLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
+          <span className="text-xs font-bold uppercase tracking-widest hidden sm:inline">Back</span>
+        </button>
+      )}
+
       <div className="max-w-2xl w-full">
         <div className="text-center mb-10">
           <div className="w-16 h-16 bg-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl rotate-12"><Sparkles className="text-white" size={32} /></div>
           <h1 className="text-4xl font-extrabold text-white mb-3 tracking-tight italic">Select Your Habits</h1>
+          {error && <p className="text-red-400 text-xs font-bold uppercase tracking-widest animate-pulse">{error}</p>}
         </div>
 
         <div className="space-y-8">
