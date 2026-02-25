@@ -46,16 +46,18 @@ const App: React.FC = () => {
       return;
     }
     const initAuth = async () => {
+      if (!supabase) return;
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       setSession(currentSession);
       setLoading(false);
     };
     initAuth();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session);
       if (event === 'SIGNED_OUT') {
-        setSession(null);
-      } else if (session) {
-        setSession(session);
+        setProfile(null);
+        setHabits([]);
+        setLogs([]);
       }
       setLoading(false);
     });
@@ -114,6 +116,7 @@ const App: React.FC = () => {
     if (notepadSyncTimer.current) clearTimeout(notepadSyncTimer.current);
     
     notepadSyncTimer.current = setTimeout(async () => {
+      if (!supabase) return;
       try {
         const { error } = await supabase.from('profiles').update({ notepad_content: content }).eq('id', session.user.id);
         if (error) throw error;
@@ -321,7 +324,7 @@ const App: React.FC = () => {
           className="max-w-md flex flex-col items-start transition-all active:scale-[0.98] text-left md:hover:opacity-80 active:opacity-70"
         >
           <h1 className="text-3xl font-black text-white">Be Consistent</h1>
-          <p className="text-[10px] text-slate-500 font-medium italic">Consistency is the superpower.</p>
+          <p className="text-[10px] text-slate-500 font-medium italic">Show up, even if you really don't want to.</p>
         </button>
         <button onClick={() => setIsSidebarOpen(true)} className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center">
           <Menu size={24} className="text-slate-400" />

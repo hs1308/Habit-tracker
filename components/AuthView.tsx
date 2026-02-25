@@ -84,8 +84,8 @@ const AuthView: React.FC = () => {
             <p className="text-sm font-bold text-red-400 italic uppercase tracking-tighter">Auth Error: Please try again</p>
           </div>
         ) : (
-          <p className="text-slate-400 text-lg mb-12 max-w-prose mx-auto italic font-medium whitespace-nowrap overflow-hidden text-ellipsis px-4">
-            "Consistency is the superpower."
+          <p className="text-slate-400 text-lg mb-12 max-w-prose mx-auto italic font-medium px-4">
+            Show up, even if you really don't want to.
           </p>
         )}
 

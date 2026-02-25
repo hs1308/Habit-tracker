@@ -279,7 +279,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                   onPointerDown={onPointerDown}
                   onPointerMove={onPointerMove}
                   onPointerUp={(e) => onPointerUp(e, item.date)}
-                  onMouseEnter={(e) => { if (e.pointerType === 'mouse') setBreakdownDay(item.date); }}
+                  onPointerEnter={(e) => { if (e.pointerType === 'mouse') setBreakdownDay(item.date); }}
                   onMouseLeave={() => setBreakdownDay(null)}
                 >
                   {hasActivity && (

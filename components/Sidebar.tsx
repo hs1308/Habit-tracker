@@ -71,7 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex justify-between items-center mb-10">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20">
-                JS
+                BC
               </div>
               <div>
                 <h2 className="font-bold text-lg">Be Consistent</h2>
@@ -154,7 +154,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </button>
              </div>
              <p className="text-[10px] text-center text-slate-600 uppercase tracking-widest font-bold">
-               Consistency is key
+               Show up, even if you really don't want to.
              </p>
           </div>
         </div>
