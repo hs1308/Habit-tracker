@@ -74,7 +74,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 JS
               </div>
               <div>
-                <h2 className="font-bold text-lg">Just Show Up</h2>
+                <h2 className="font-bold text-lg">Be Consistent</h2>
                 <p className="text-xs text-slate-500">v1.2.0</p>
               </div>
             </div>

@@ -76,7 +76,7 @@ const AuthView: React.FC = () => {
           <TrendingUp className="text-white" size={40} />
         </div>
         
-        <h1 className="text-5xl font-extrabold text-white mb-4 tracking-tighter">Just Show Up</h1>
+        <h1 className="text-5xl font-extrabold text-white mb-4 tracking-tighter">Be Consistent</h1>
         
         {error ? (
           <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center gap-3 animate-in slide-in-from-top-2 max-w-md mx-auto">
@@ -85,7 +85,7 @@ const AuthView: React.FC = () => {
           </div>
         ) : (
           <p className="text-slate-400 text-lg mb-12 max-w-prose mx-auto italic font-medium whitespace-nowrap overflow-hidden text-ellipsis px-4">
-            "Especially when you really don't want to"
+            "Consistency is the superpower."
           </p>
         )}
 
