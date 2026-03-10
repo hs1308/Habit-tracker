@@ -32,6 +32,8 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'dashboard' | 'logs' | 'settings' | 'notepad'>('dashboard');
   const [viewMode, setViewMode] = useState<'week' | 'month' | 'trends'>('week');
   const [referenceDate, setReferenceDate] = useState(new Date());
+  const [trendRange, setTrendRange] = useState<30 | 60 | 90 | 'lifetime'>(30);
+  const [trendGrouping, setTrendGrouping] = useState<'day' | 'week' | 'month'>('day');
 
   // Notepad specific state
   const [notepadContent, setNotepadContent] = useState('');
@@ -137,9 +139,41 @@ const App: React.FC = () => {
   };
 
   const activePeriodDates = useMemo(() => {
-    if (viewMode === 'trends') return []; // Trends doesn't use activePeriodDates the same way
+    if (viewMode === 'trends') {
+      if (logs.length === 0) return [];
+      
+      const firstLogDate = (() => {
+        const allDates = logs.map(l => new Date(l.attributed_date).getTime());
+        const d = new Date(Math.min(...allDates));
+        d.setHours(0,0,0,0);
+        return d;
+      })();
+
+      let startDate: Date;
+      const now = new Date();
+      now.setHours(0,0,0,0);
+
+      if (trendRange === 'lifetime') {
+        startDate = new Date(firstLogDate);
+      } else {
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - trendRange);
+        if (firstLogDate > startDate) {
+          startDate = new Date(firstLogDate);
+        }
+      }
+      startDate.setHours(0,0,0,0);
+
+      const dates: string[] = [];
+      const curr = new Date(startDate);
+      while (curr <= now) {
+        dates.push(getAttributedDate(curr));
+        curr.setDate(curr.getDate() + 1);
+      }
+      return dates;
+    }
     return getPeriodDates(referenceDate, viewMode);
-  }, [referenceDate, viewMode]);
+  }, [referenceDate, viewMode, trendRange, logs]);
   const activeHabits = habits.filter(h => !h.deleted_at);
 
   const currentUserNickname = useMemo(() => {
@@ -368,6 +402,10 @@ const App: React.FC = () => {
             }} 
             onViewChange={setViewMode} 
             filteredHabitName={habits.find(h => h.id === selectedHabitId)?.name}
+            trendRange={trendRange}
+            onTrendRangeChange={setTrendRange}
+            trendGrouping={trendGrouping}
+            onTrendGroupingChange={setTrendGrouping}
           />
           
           <HabitSplitGrid 

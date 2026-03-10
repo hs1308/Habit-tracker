@@ -15,6 +15,10 @@ interface WeeklyChartProps {
   onNavigate: (direction: number) => void;
   onViewChange: (mode: 'week' | 'month' | 'trends') => void;
   filteredHabitName?: string;
+  trendRange: 30 | 60 | 90 | 'lifetime';
+  onTrendRangeChange: (range: 30 | 60 | 90 | 'lifetime') => void;
+  trendGrouping: 'day' | 'week' | 'month';
+  onTrendGroupingChange: (grouping: 'day' | 'week' | 'month') => void;
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -40,11 +44,14 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
   selectedHabitId,
   onNavigate, 
   onViewChange,
-  filteredHabitName
+  filteredHabitName,
+  trendRange,
+  onTrendRangeChange,
+  trendGrouping,
+  onTrendGroupingChange
 }) => {
   const [viewType, setViewType] = useState<'total' | 'split'>('total');
   const [breakdownDay, setBreakdownDay] = useState<string | null>(null);
-  const [trendRange, setTrendRange] = useState<30 | 60 | 90 | 'lifetime'>(30);
   
   const pointerStart = useRef<{ x: number, y: number } | null>(null);
   const didMove = useRef(false);
@@ -143,22 +150,50 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
     const endDate = new Date();
     endDate.setHours(23,59,59,999);
 
-    const data = [];
+    const rawData = [];
     const curr = new Date(startDate);
     while (curr <= endDate) {
       const dateStr = getAttributedDate(curr);
       const dayLogs = filteredLogs.filter(log => log.attributed_date === dateStr);
       const totalSeconds = dayLogs.reduce((sum, log) => sum + log.duration_seconds, 0);
       
-      data.push({
+      rawData.push({
         date: dateStr,
-        totalHours: parseFloat((totalSeconds / 3600).toFixed(2)),
         totalSeconds
       });
       curr.setDate(curr.getDate() + 1);
     }
-    return data;
-  }, [filteredLogs, viewMode, trendRange, logs, firstLogDate]);
+
+    if (trendGrouping === 'day') {
+      return rawData.map(d => ({
+        ...d,
+        totalHours: parseFloat((d.totalSeconds / 3600).toFixed(2))
+      }));
+    }
+
+    const grouped: Record<string, number> = {};
+    rawData.forEach(d => {
+      const date = new Date(d.date);
+      let key: string;
+      if (trendGrouping === 'week') {
+        // Find Monday of that week
+        const day = date.getDay();
+        const diff = date.getDate() - (day === 0 ? 6 : day - 1);
+        const monday = new Date(date.setDate(diff));
+        key = getAttributedDate(monday);
+      } else {
+        // Month
+        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+      }
+      grouped[key] = (grouped[key] || 0) + d.totalSeconds;
+    });
+
+    return Object.entries(grouped).sort().map(([date, totalSeconds]) => ({
+      date,
+      totalSeconds,
+      totalHours: parseFloat((totalSeconds / 3600).toFixed(2))
+    }));
+  }, [filteredLogs, viewMode, trendRange, logs, firstLogDate, trendGrouping]);
 
   const trendTicks = useMemo(() => {
     if (trendChartData.length < 2) return [];
@@ -175,6 +210,10 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
     const date = new Date(dateStr);
     const totalDays = trendChartData.length;
     
+    if (trendGrouping === 'month') {
+      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    }
+
     if (totalDays > 547) { // 1.5 years
       return date.getFullYear().toString();
     } else if (totalDays > 90) {
@@ -288,8 +327,8 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
           <p className="text-3xl font-bold text-white tracking-tight">{formatDuration(totalPeriodSeconds)}</p>
         </div>
         
-        <div className="flex flex-col items-end gap-3">
-          <div className="flex gap-4">
+        <div className="flex flex-col items-end gap-3 ml-auto">
+          <div className="flex flex-col sm:flex-row gap-3 items-end">
             {viewMode === 'week' && !selectedHabitId && (
               <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800">
                 <button onClick={() => setViewType('total')} className={`p-1.5 rounded-lg transition-all flex items-center gap-2 px-3 ${viewType === 'total' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><span className="text-[10px] font-black uppercase">Total</span></button>
@@ -309,16 +348,32 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                <button onClick={() => onNavigate(1)} className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"><ChevronRight size={18} /></button>
             </div>
           ) : (
-            <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800">
-              {[30, 60, 90, 'lifetime'].map((range) => (
-                <button 
-                  key={range}
-                  onClick={() => setTrendRange(range as any)}
-                  className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${trendRange === range ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                >
-                  {range === 'lifetime' ? 'All' : `${range}d`}
-                </button>
-              ))}
+            <div className="flex flex-col sm:flex-row gap-3 items-end">
+              <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+                {['day', 'week', 'month'].map((g) => {
+                  if (g === 'month' && trendRange === 30) return null;
+                  return (
+                    <button 
+                      key={g}
+                      onClick={() => onTrendGroupingChange(g as any)}
+                      className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${trendGrouping === g ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                    >
+                      {g}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+                {[30, 60, 90, 'lifetime'].map((range) => (
+                  <button 
+                    key={range}
+                    onClick={() => onTrendRangeChange(range as any)}
+                    className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${trendRange === range ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    {range === 'lifetime' ? 'All' : `${range}d`}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
