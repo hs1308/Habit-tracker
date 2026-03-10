@@ -1,19 +1,19 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Rectangle } from 'recharts';
-import { getDayName, formatDuration, getPeriodLabel, getCalendarGrid } from '../utils/dateUtils';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Rectangle, LineChart, Line } from 'recharts';
+import { getDayName, formatDuration, getPeriodLabel, getCalendarGrid, getAttributedDate } from '../utils/dateUtils';
 import { HabitLog, Habit } from '../types';
-import { ChevronLeft, ChevronRight, LayoutGrid, BarChart2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutGrid, BarChart2, TrendingUp } from 'lucide-react';
 
 interface WeeklyChartProps {
   logs: HabitLog[];
   habits: Habit[];
   activePeriodDates: string[];
   referenceDate: Date;
-  viewMode: 'week' | 'month';
+  viewMode: 'week' | 'month' | 'trends';
   selectedHabitId?: string | null;
   onNavigate: (direction: number) => void;
-  onViewChange: (mode: 'week' | 'month') => void;
+  onViewChange: (mode: 'week' | 'month' | 'trends') => void;
   filteredHabitName?: string;
 }
 
@@ -44,6 +44,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
 }) => {
   const [viewType, setViewType] = useState<'total' | 'split'>('total');
   const [breakdownDay, setBreakdownDay] = useState<string | null>(null);
+  const [trendRange, setTrendRange] = useState<30 | 60 | 90 | 'lifetime'>(30);
   
   const pointerStart = useRef<{ x: number, y: number } | null>(null);
   const didMove = useRef(false);
@@ -57,11 +58,39 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
     return logs.filter(log => log.habit_id === selectedHabitId);
   }, [logs, selectedHabitId]);
 
+  const firstLogDate = useMemo(() => {
+    if (logs.length === 0) return null;
+    const allDates = logs.map(l => new Date(l.attributed_date).getTime());
+    const d = new Date(Math.min(...allDates));
+    d.setHours(0,0,0,0);
+    return d;
+  }, [logs]);
+
   const totalPeriodSeconds = useMemo(() => {
+    if (viewMode === 'trends') {
+      let startDate: Date;
+      const now = new Date();
+      now.setHours(0,0,0,0);
+
+      if (trendRange === 'lifetime') {
+        if (!firstLogDate) return 0;
+        startDate = new Date(firstLogDate);
+      } else {
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - trendRange);
+        if (firstLogDate && firstLogDate > startDate) {
+          startDate = new Date(firstLogDate);
+        }
+      }
+      startDate.setHours(0,0,0,0);
+      return filteredLogs
+        .filter(log => new Date(log.attributed_date) >= startDate)
+        .reduce((sum, log) => sum + log.duration_seconds, 0);
+    }
     return filteredLogs
       .filter(log => activePeriodDates.includes(log.attributed_date))
       .reduce((sum, log) => sum + log.duration_seconds, 0);
-  }, [filteredLogs, activePeriodDates]);
+  }, [filteredLogs, activePeriodDates, viewMode, trendRange, logs, firstLogDate]);
 
   // STABLE SORTING: Alphabetical sort ensures the stack order is identical every time.
   const activeHabitIdsInPeriod = useMemo(() => {
@@ -91,6 +120,69 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       return data;
     });
   }, [filteredLogs, activePeriodDates, viewMode, activeHabitIdsInPeriod]);
+
+  const trendChartData = useMemo(() => {
+    if (viewMode !== 'trends') return [];
+    
+    let startDate: Date;
+    const now = new Date();
+    now.setHours(0,0,0,0);
+
+    if (trendRange === 'lifetime') {
+      if (!firstLogDate) return [];
+      startDate = new Date(firstLogDate);
+    } else {
+      startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - trendRange);
+      if (firstLogDate && firstLogDate > startDate) {
+        startDate = new Date(firstLogDate);
+      }
+    }
+    startDate.setHours(0,0,0,0);
+
+    const endDate = new Date();
+    endDate.setHours(23,59,59,999);
+
+    const data = [];
+    const curr = new Date(startDate);
+    while (curr <= endDate) {
+      const dateStr = getAttributedDate(curr);
+      const dayLogs = filteredLogs.filter(log => log.attributed_date === dateStr);
+      const totalSeconds = dayLogs.reduce((sum, log) => sum + log.duration_seconds, 0);
+      
+      data.push({
+        date: dateStr,
+        totalHours: parseFloat((totalSeconds / 3600).toFixed(2)),
+        totalSeconds
+      });
+      curr.setDate(curr.getDate() + 1);
+    }
+    return data;
+  }, [filteredLogs, viewMode, trendRange, logs, firstLogDate]);
+
+  const trendTicks = useMemo(() => {
+    if (trendChartData.length < 2) return [];
+    const count = Math.min(trendChartData.length, 5);
+    const result = [];
+    for (let i = 0; i < count; i++) {
+      const index = Math.floor((i * (trendChartData.length - 1)) / (count - 1));
+      result.push(trendChartData[index].date);
+    }
+    return result;
+  }, [trendChartData]);
+
+  const formatTrendXAxis = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const totalDays = trendChartData.length;
+    
+    if (totalDays > 547) { // 1.5 years
+      return date.getFullYear().toString();
+    } else if (totalDays > 90) {
+      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  };
 
   // Custom shape for "Split" view: Ensures curves only on the true top/bottom of the day's entire stack.
   const renderStackedBar = (props: any) => {
@@ -200,20 +292,35 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
           <div className="flex gap-4">
             {viewMode === 'week' && !selectedHabitId && (
               <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800">
-                <button onClick={() => setViewType('total')} className={`p-1.5 rounded-lg transition-all flex items-center gap-2 px-3 ${viewType === 'total' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><BarChart2 size={14} /><span className="text-[10px] font-black uppercase">Total</span></button>
-                <button onClick={() => setViewType('split')} className={`p-1.5 rounded-lg transition-all flex items-center gap-2 px-3 ${viewType === 'split' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><LayoutGrid size={14} /><span className="text-[10px] font-black uppercase">Split</span></button>
+                <button onClick={() => setViewType('total')} className={`p-1.5 rounded-lg transition-all flex items-center gap-2 px-3 ${viewType === 'total' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><span className="text-[10px] font-black uppercase">Total</span></button>
+                <button onClick={() => setViewType('split')} className={`p-1.5 rounded-lg transition-all flex items-center gap-2 px-3 ${viewType === 'split' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><span className="text-[10px] font-black uppercase">Split</span></button>
               </div>
             )}
             <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
               <button onClick={() => onViewChange('week')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'week' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}>Week</button>
               <button onClick={() => onViewChange('month')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'month' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}>Month</button>
+              <button onClick={() => onViewChange('trends')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'trends' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}>Trends</button>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-             <button onClick={() => onNavigate(-1)} className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"><ChevronLeft size={18} /></button>
-             <span className="text-sm font-semibold text-slate-300 min-w-[140px] text-center">{getPeriodLabel(referenceDate, viewMode)}</span>
-             <button onClick={() => onNavigate(1)} className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"><ChevronRight size={18} /></button>
-          </div>
+          {viewMode !== 'trends' ? (
+            <div className="flex items-center gap-4">
+               <button onClick={() => onNavigate(-1)} className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"><ChevronLeft size={18} /></button>
+               <span className="text-sm font-semibold text-slate-300 min-w-[140px] text-center">{getPeriodLabel(referenceDate, viewMode)}</span>
+               <button onClick={() => onNavigate(1)} className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"><ChevronRight size={18} /></button>
+            </div>
+          ) : (
+            <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+              {[30, 60, 90, 'lifetime'].map((range) => (
+                <button 
+                  key={range}
+                  onClick={() => setTrendRange(range as any)}
+                  className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${trendRange === range ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  {range === 'lifetime' ? 'All' : `${range}d`}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -259,10 +366,60 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
         </div>
       )}
 
+      {viewMode === 'trends' && (
+        <div className="h-48 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={trendChartData} margin={{ top: 10, right: 8, left: 0, bottom: 20 }}>
+              <XAxis 
+                dataKey="date" 
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: '#64748b', fontSize: 10 }}
+                ticks={trendTicks}
+                tickFormatter={formatTrendXAxis}
+                dy={10}
+              />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: '#64748b', fontSize: 10 }} 
+                orientation="left" 
+                width={32} 
+                tickCount={4} 
+                allowDecimals={false}
+                domain={[0, 'auto']}
+              />
+              <Tooltip 
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload;
+                    return (
+                      <div className="bg-slate-800 border border-slate-700 p-3 rounded-lg shadow-xl">
+                        <p className="text-slate-400 text-[10px] mb-1 font-bold uppercase tracking-widest">{data.date}</p>
+                        <p className="text-indigo-400 font-bold text-lg">{formatDuration(data.totalSeconds)}</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }} 
+              />
+              <Line 
+                type="monotone" 
+                dataKey="totalHours" 
+                stroke="#6366f1" 
+                strokeWidth={3} 
+                dot={trendChartData.length < 40}
+                activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       {viewMode === 'month' && (
         <div className="w-full relative">
           <div className="grid grid-cols-7 gap-y-4 text-center">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="text-[10px] uppercase font-bold text-slate-600 mb-2">{d}</div>)}
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => <div key={d} className="text-[10px] uppercase font-bold text-slate-600 mb-2">{d}</div>)}
             {calendarGrid.map((item, idx) => {
               if (!item) return <div key={`empty-${idx}`} className="aspect-square" />;
               const dayLogs = filteredLogs.filter(log => log.attributed_date === item.date);

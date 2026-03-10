@@ -37,7 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'logs', label: 'Activity Logs', icon: History },
-    { id: 'settings', label: 'Habit Settings', icon: Settings },
+    { id: 'settings', label: 'Add or Remove Habits', icon: Settings },
   ] as const;
 
   const handleSaveNickname = async () => {

@@ -23,7 +23,10 @@ export const getAttributedDate = (date: Date): string => {
 export const getStartOfWeek = (date: Date): Date => {
   const d = new Date(date);
   const day = d.getDay(); // 0 (Sun) to 6 (Sat)
-  const diff = d.getDate() - day;
+  // Monday is 1, Sunday is 0. 
+  // If Sunday (0), we want to go back 6 days.
+  // If Monday (1), we want to go back 0 days.
+  const diff = d.getDate() - (day === 0 ? 6 : day - 1);
   const start = new Date(d.setDate(diff));
   start.setHours(0, 0, 0, 0);
   return start;
@@ -66,7 +69,9 @@ export const getCalendarGrid = (refDate: Date) => {
   const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
   
   const grid = [];
-  const startOffset = firstDayOfMonth; 
+  // If first day is Sunday (0), we need 6 empty slots.
+  // If first day is Monday (1), we need 0 empty slots.
+  const startOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1; 
 
   for (let i = 0; i < startOffset; i++) {
     grid.push(null);

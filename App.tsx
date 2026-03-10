@@ -30,7 +30,7 @@ const App: React.FC = () => {
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
   
   const [currentView, setCurrentView] = useState<'dashboard' | 'logs' | 'settings' | 'notepad'>('dashboard');
-  const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
+  const [viewMode, setViewMode] = useState<'week' | 'month' | 'trends'>('week');
   const [referenceDate, setReferenceDate] = useState(new Date());
 
   // Notepad specific state
@@ -136,7 +136,10 @@ const App: React.FC = () => {
     syncNotepadToCloud(newContent);
   };
 
-  const activePeriodDates = useMemo(() => getPeriodDates(referenceDate, viewMode), [referenceDate, viewMode]);
+  const activePeriodDates = useMemo(() => {
+    if (viewMode === 'trends') return []; // Trends doesn't use activePeriodDates the same way
+    return getPeriodDates(referenceDate, viewMode);
+  }, [referenceDate, viewMode]);
   const activeHabits = habits.filter(h => !h.deleted_at);
 
   const currentUserNickname = useMemo(() => {
@@ -360,7 +363,7 @@ const App: React.FC = () => {
             onNavigate={(dir) => {
                 const newDate = new Date(referenceDate);
                 if (viewMode === 'week') newDate.setDate(newDate.getDate() + (dir * 7));
-                else newDate.setMonth(newDate.getMonth() + dir);
+                else if (viewMode === 'month') newDate.setMonth(newDate.getMonth() + dir);
                 setReferenceDate(newDate);
             }} 
             onViewChange={setViewMode} 
