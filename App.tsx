@@ -30,10 +30,10 @@ const App: React.FC = () => {
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
   
   const [currentView, setCurrentView] = useState<'dashboard' | 'logs' | 'settings' | 'notepad'>('dashboard');
-  const [viewMode, setViewMode] = useState<'week' | 'month' | 'trends'>('week');
+  const [viewMode, setViewMode] = useState<'week' | 'month' | 'more'>('week');
   const [referenceDate, setReferenceDate] = useState(new Date());
   const [trendRange, setTrendRange] = useState<30 | 60 | 90 | 'lifetime'>(30);
-  const [trendGrouping, setTrendGrouping] = useState<'day' | 'week' | 'month'>('day');
+  const [trendGrouping, setTrendGrouping] = useState<'week' | 'month'>('week');
 
   // Notepad specific state
   const [notepadContent, setNotepadContent] = useState('');
@@ -139,7 +139,7 @@ const App: React.FC = () => {
   };
 
   const activePeriodDates = useMemo(() => {
-    if (viewMode === 'trends') {
+    if (viewMode === 'more') {
       if (logs.length === 0) return [];
       
       const firstLogDate = (() => {

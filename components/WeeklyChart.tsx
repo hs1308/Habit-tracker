@@ -10,15 +10,15 @@ interface WeeklyChartProps {
   habits: Habit[];
   activePeriodDates: string[];
   referenceDate: Date;
-  viewMode: 'week' | 'month' | 'trends';
+  viewMode: 'week' | 'month' | 'more';
   selectedHabitId?: string | null;
   onNavigate: (direction: number) => void;
-  onViewChange: (mode: 'week' | 'month' | 'trends') => void;
+  onViewChange: (mode: 'week' | 'month' | 'more') => void;
   filteredHabitName?: string;
   trendRange: 30 | 60 | 90 | 'lifetime';
   onTrendRangeChange: (range: 30 | 60 | 90 | 'lifetime') => void;
-  trendGrouping: 'day' | 'week' | 'month';
-  onTrendGroupingChange: (grouping: 'day' | 'week' | 'month') => void;
+  trendGrouping: 'week' | 'month';
+  onTrendGroupingChange: (grouping: 'week' | 'month') => void;
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -74,7 +74,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
   }, [logs]);
 
   const totalPeriodSeconds = useMemo(() => {
-    if (viewMode === 'trends') {
+    if (viewMode === 'more') {
       let startDate: Date;
       const now = new Date();
       now.setHours(0,0,0,0);
@@ -129,7 +129,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
   }, [filteredLogs, activePeriodDates, viewMode, activeHabitIdsInPeriod]);
 
   const trendChartData = useMemo(() => {
-    if (viewMode !== 'trends') return [];
+    if (viewMode !== 'more') return [];
     
     let startDate: Date;
     const now = new Date();
@@ -162,13 +162,6 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
         totalSeconds
       });
       curr.setDate(curr.getDate() + 1);
-    }
-
-    if (trendGrouping === 'day') {
-      return rawData.map(d => ({
-        ...d,
-        totalHours: parseFloat((d.totalSeconds / 3600).toFixed(2))
-      }));
     }
 
     const grouped: Record<string, number> = {};
@@ -327,8 +320,8 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
           <p className="text-3xl font-bold text-white tracking-tight">{formatDuration(totalPeriodSeconds)}</p>
         </div>
         
-        <div className="flex flex-col items-end gap-3 ml-auto">
-          <div className="flex flex-col sm:flex-row gap-3 items-end">
+        <div className="flex flex-col items-end gap-3 ml-auto w-full sm:w-auto">
+          <div className="flex flex-wrap justify-end gap-3 items-center w-full">
             {viewMode === 'week' && !selectedHabitId && (
               <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800">
                 <button onClick={() => setViewType('total')} className={`p-1.5 rounded-lg transition-all flex items-center gap-2 px-3 ${viewType === 'total' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><span className="text-[10px] font-black uppercase">Total</span></button>
@@ -336,21 +329,21 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
               </div>
             )}
             <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
-              <button onClick={() => onViewChange('week')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'week' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}>Week</button>
-              <button onClick={() => onViewChange('month')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'month' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}>Month</button>
-              <button onClick={() => onViewChange('trends')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'trends' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}>Trends</button>
+              <button onClick={() => onViewChange('week')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'week' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}>Week</button>
+              <button onClick={() => onViewChange('month')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'month' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}>Month</button>
+              <button onClick={() => onViewChange('more')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'more' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}>More</button>
             </div>
           </div>
-          {viewMode !== 'trends' ? (
+          {viewMode !== 'more' ? (
             <div className="flex items-center gap-4">
                <button onClick={() => onNavigate(-1)} className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"><ChevronLeft size={18} /></button>
                <span className="text-sm font-semibold text-slate-300 min-w-[140px] text-center">{getPeriodLabel(referenceDate, viewMode)}</span>
                <button onClick={() => onNavigate(1)} className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"><ChevronRight size={18} /></button>
             </div>
           ) : (
-            <div className="flex flex-col sm:flex-row gap-3 items-end">
+            <div className="flex flex-wrap justify-end gap-3 items-center w-full">
               <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800">
-                {['day', 'week', 'month'].map((g) => {
+                {['week', 'month'].map((g) => {
                   if (g === 'month' && trendRange === 30) return null;
                   return (
                     <button 
@@ -421,7 +414,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
         </div>
       )}
 
-      {viewMode === 'trends' && (
+      {viewMode === 'more' && (
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={trendChartData} margin={{ top: 10, right: 8, left: 0, bottom: 20 }}>
