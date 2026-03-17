@@ -172,7 +172,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
         // Find Monday of that week
         const day = date.getDay();
         const diff = date.getDate() - (day === 0 ? 6 : day - 1);
-        const monday = new Date(date.setDate(diff));
+        const monday = new Date(date.getFullYear(), date.getMonth(), diff);
         key = getAttributedDate(monday);
       } else {
         // Month
@@ -181,8 +181,33 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       grouped[key] = (grouped[key] || 0) + d.totalSeconds;
     });
 
+    // Fill missing periods with 0 to ensure linear X-axis and fix "repeating/uneven" look
+    const fillCurr = new Date(startDate);
+    while (fillCurr <= endDate) {
+      let key: string;
+      if (trendGrouping === 'week') {
+        const day = fillCurr.getDay();
+        const diff = fillCurr.getDate() - (day === 0 ? 6 : day - 1);
+        const monday = new Date(fillCurr.getFullYear(), fillCurr.getMonth(), diff);
+        key = getAttributedDate(monday);
+        // Move to next week
+        fillCurr.setDate(fillCurr.getDate() + 7);
+      } else {
+        key = `${fillCurr.getFullYear()}-${String(fillCurr.getMonth() + 1).padStart(2, '0')}-01`;
+        // Move to next month
+        fillCurr.setMonth(fillCurr.getMonth() + 1);
+      }
+      if (!(key in grouped)) {
+        grouped[key] = 0;
+      }
+    }
+
+    const nowLocal = new Date();
+    nowLocal.setHours(0, 0, 0, 0);
+
     const data = Object.entries(grouped).sort().map(([dateStr, totalSeconds]) => {
-      const keyDate = new Date(dateStr);
+      const parts = dateStr.split('-').map(Number);
+      const keyDate = new Date(parts[0], parts[1] - 1, parts[2]);
       let isOngoing = false;
       let estimatedSeconds = totalSeconds;
 
@@ -190,17 +215,19 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
         const monday = new Date(keyDate);
         const sunday = new Date(monday);
         sunday.setDate(monday.getDate() + 6);
-        if (now >= monday && now <= sunday) {
+        if (nowLocal >= monday && nowLocal <= sunday) {
           isOngoing = true;
-          const daysPassed = Math.floor((now.getTime() - monday.getTime()) / (24 * 3600 * 1000)) + 1;
+          // Calculate days passed in this week (Mon=1, Tue=2, etc.)
+          const diffMs = nowLocal.getTime() - monday.getTime();
+          const daysPassed = Math.round(diffMs / (24 * 3600 * 1000)) + 1;
           estimatedSeconds = (totalSeconds / Math.max(1, daysPassed)) * 7;
         }
       } else {
         const firstDay = new Date(keyDate);
         const lastDay = new Date(firstDay.getFullYear(), firstDay.getMonth() + 1, 0);
-        if (now >= firstDay && now <= lastDay) {
+        if (nowLocal >= firstDay && nowLocal <= lastDay) {
           isOngoing = true;
-          const daysPassed = now.getDate();
+          const daysPassed = nowLocal.getDate();
           const totalDays = lastDay.getDate();
           estimatedSeconds = (totalSeconds / Math.max(1, daysPassed)) * totalDays;
         }
@@ -520,7 +547,8 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                 strokeWidth={3} 
                 dot={trendChartData.length < 40}
                 activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
-                connectNulls={false}
+                connectNulls={true}
+                isAnimationActive={false}
               />
               <Line 
                 type="monotone" 
@@ -530,7 +558,8 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                 strokeDasharray="5 5"
                 dot={trendChartData.length < 40}
                 activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
-                connectNulls={false}
+                connectNulls={true}
+                isAnimationActive={false}
               />
             </LineChart>
           </ResponsiveContainer>
