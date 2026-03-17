@@ -181,12 +181,63 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       grouped[key] = (grouped[key] || 0) + d.totalSeconds;
     });
 
-    return Object.entries(grouped).sort().map(([date, totalSeconds]) => ({
-      date,
-      totalSeconds,
-      totalHours: parseFloat((totalSeconds / 3600).toFixed(2))
-    }));
+    return Object.entries(grouped).sort().map(([dateStr, totalSeconds]) => {
+      const keyDate = new Date(dateStr);
+      let isOngoing = false;
+      let estimatedSeconds = totalSeconds;
+
+      if (trendGrouping === 'week') {
+        const monday = new Date(keyDate);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        if (now >= monday && now <= sunday) {
+          isOngoing = true;
+          const daysPassed = Math.floor((now.getTime() - monday.getTime()) / (24 * 3600 * 1000)) + 1;
+          estimatedSeconds = (totalSeconds / Math.max(1, daysPassed)) * 7;
+        }
+      } else {
+        const firstDay = new Date(keyDate);
+        const lastDay = new Date(firstDay.getFullYear(), firstDay.getMonth() + 1, 0);
+        if (now >= firstDay && now <= lastDay) {
+          isOngoing = true;
+          const daysPassed = now.getDate();
+          const totalDays = lastDay.getDate();
+          estimatedSeconds = (totalSeconds / Math.max(1, daysPassed)) * totalDays;
+        }
+      }
+
+      return {
+        date: dateStr,
+        totalSeconds: isOngoing ? estimatedSeconds : totalSeconds,
+        actualSeconds: totalSeconds,
+        totalHours: parseFloat(((isOngoing ? estimatedSeconds : totalSeconds) / 3600).toFixed(2)),
+        actualHours: parseFloat((totalSeconds / 3600).toFixed(2)),
+        isEstimated: isOngoing
+      };
+    });
   }, [filteredLogs, viewMode, trendRange, logs, firstLogDate, trendGrouping]);
+
+  const solidTrendData = useMemo(() => {
+    if (trendChartData.length === 0) return [];
+    const last = trendChartData[trendChartData.length - 1];
+    if (!last.isEstimated) return trendChartData;
+    
+    return trendChartData.map((d, i) => {
+      if (i === trendChartData.length - 1) return { ...d, totalHours: null };
+      return d;
+    });
+  }, [trendChartData]);
+
+  const dashedTrendData = useMemo(() => {
+    if (trendChartData.length < 2) return [];
+    const last = trendChartData[trendChartData.length - 1];
+    if (!last.isEstimated) return [];
+
+    return trendChartData.map((d, i) => {
+      if (i === trendChartData.length - 1 || i === trendChartData.length - 2) return d;
+      return { ...d, totalHours: null };
+    });
+  }, [trendChartData]);
 
   const trendTicks = useMemo(() => {
     if (trendChartData.length < 2) return [];
@@ -444,7 +495,15 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                     return (
                       <div className="bg-slate-800 border border-slate-700 p-3 rounded-lg shadow-xl">
                         <p className="text-slate-400 text-[10px] mb-1 font-bold uppercase tracking-widest">{data.date}</p>
-                        <p className="text-indigo-400 font-bold text-lg">{formatDuration(data.totalSeconds)}</p>
+                        <p className="text-indigo-400 font-bold text-lg">
+                          {formatDuration(data.totalSeconds)}
+                          {data.isEstimated && <span className="text-[10px] ml-2 text-slate-500 italic opacity-70">(Est.)</span>}
+                        </p>
+                        {data.isEstimated && (
+                          <p className="text-[10px] text-slate-500 mt-1 font-medium">
+                            Actual: {formatDuration(data.actualSeconds)}
+                          </p>
+                        )}
                       </div>
                     );
                   }
@@ -452,12 +511,25 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                 }} 
               />
               <Line 
+                data={solidTrendData}
                 type="monotone" 
                 dataKey="totalHours" 
                 stroke="#6366f1" 
                 strokeWidth={3} 
                 dot={trendChartData.length < 40}
                 activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+                connectNulls={false}
+              />
+              <Line 
+                data={dashedTrendData}
+                type="monotone" 
+                dataKey="totalHours" 
+                stroke="#6366f1" 
+                strokeWidth={3} 
+                strokeDasharray="5 5"
+                dot={trendChartData.length < 40}
+                activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+                connectNulls={false}
               />
             </LineChart>
           </ResponsiveContainer>
