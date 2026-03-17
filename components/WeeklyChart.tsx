@@ -181,7 +181,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       grouped[key] = (grouped[key] || 0) + d.totalSeconds;
     });
 
-    return Object.entries(grouped).sort().map(([dateStr, totalSeconds]) => {
+    const data = Object.entries(grouped).sort().map(([dateStr, totalSeconds]) => {
       const keyDate = new Date(dateStr);
       let isOngoing = false;
       let estimatedSeconds = totalSeconds;
@@ -210,34 +210,37 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
         date: dateStr,
         totalSeconds: isOngoing ? estimatedSeconds : totalSeconds,
         actualSeconds: totalSeconds,
-        totalHours: parseFloat(((isOngoing ? estimatedSeconds : totalSeconds) / 3600).toFixed(2)),
-        actualHours: parseFloat((totalSeconds / 3600).toFixed(2)),
         isEstimated: isOngoing
+      };
+    });
+
+    return data.map((d, i) => {
+      const isLast = i === data.length - 1;
+      const isSecondLast = i === data.length - 2;
+      
+      let solidHours = null;
+      let dashedHours = null;
+
+      if (!d.isEstimated) {
+        solidHours = parseFloat((d.actualSeconds / 3600).toFixed(2));
+        // If the NEXT point is estimated, this point also needs dashedHours to start the dashed line
+        if (isSecondLast && data[i+1].isEstimated) {
+          dashedHours = solidHours;
+        }
+      } else {
+        dashedHours = parseFloat((d.totalSeconds / 3600).toFixed(2));
+      }
+
+      return {
+        ...d,
+        solidHours,
+        dashedHours,
+        totalHours: d.isEstimated ? d.totalSeconds / 3600 : d.actualSeconds / 3600
       };
     });
   }, [filteredLogs, viewMode, trendRange, logs, firstLogDate, trendGrouping]);
 
-  const solidTrendData = useMemo(() => {
-    if (trendChartData.length === 0) return [];
-    const last = trendChartData[trendChartData.length - 1];
-    if (!last.isEstimated) return trendChartData;
-    
-    return trendChartData.map((d, i) => {
-      if (i === trendChartData.length - 1) return { ...d, totalHours: null };
-      return d;
-    });
-  }, [trendChartData]);
-
-  const dashedTrendData = useMemo(() => {
-    if (trendChartData.length < 2) return [];
-    const last = trendChartData[trendChartData.length - 1];
-    if (!last.isEstimated) return [];
-
-    return trendChartData.map((d, i) => {
-      if (i === trendChartData.length - 1 || i === trendChartData.length - 2) return d;
-      return { ...d, totalHours: null };
-    });
-  }, [trendChartData]);
+  // Removed solidTrendData and dashedTrendData as we now use a single data source
 
   const trendTicks = useMemo(() => {
     if (trendChartData.length < 2) return [];
@@ -511,9 +514,8 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                 }} 
               />
               <Line 
-                data={solidTrendData}
                 type="monotone" 
-                dataKey="totalHours" 
+                dataKey="solidHours" 
                 stroke="#6366f1" 
                 strokeWidth={3} 
                 dot={trendChartData.length < 40}
@@ -521,9 +523,8 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                 connectNulls={false}
               />
               <Line 
-                data={dashedTrendData}
                 type="monotone" 
-                dataKey="totalHours" 
+                dataKey="dashedHours" 
                 stroke="#6366f1" 
                 strokeWidth={3} 
                 strokeDasharray="5 5"
