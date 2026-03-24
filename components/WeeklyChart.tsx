@@ -570,10 +570,10 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                         </div>
 
                         <div className="mt-2 pt-2 border-t border-slate-700 flex justify-between items-center">
-                          <span className="text-[9px] font-black text-slate-500 uppercase">
+                          <span className="text-[11px] font-black text-slate-500 uppercase">
                             {data.isEstimated ? 'Projected Total' : 'Total'}
                           </span>
-                          <span className="text-[9px] font-black text-indigo-400">
+                          <span className="text-[11px] font-black text-indigo-400">
                             {formatDuration(data.totalSeconds)}
                           </span>
                         </div>
@@ -659,7 +659,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                           </div>
                         ))}
                       </div>
-                      <div className="mt-2 pt-2 border-t border-slate-700 flex justify-between"><span className="text-[9px] font-black text-slate-500 uppercase">Total</span><span className="text-[9px] font-black text-indigo-400">{formatDuration(daySeconds)}</span></div>
+                      <div className="mt-2 pt-2 border-t border-slate-700 flex justify-between"><span className="text-[11px] font-black text-slate-500 uppercase">Total</span><span className="text-[11px] font-black text-indigo-400">{formatDuration(daySeconds)}</span></div>
                     </div>
                   )}
                 </div>
