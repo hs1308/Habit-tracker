@@ -150,21 +150,29 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
     const endDate = new Date();
     endDate.setHours(23,59,59,999);
 
+    // Pre-group logs by date for O(N) lookup instead of O(N*M)
+    const logsByDate: Record<string, HabitLog[]> = {};
+    filteredLogs.forEach(log => {
+      if (!logsByDate[log.attributed_date]) logsByDate[log.attributed_date] = [];
+      logsByDate[log.attributed_date].push(log);
+    });
+
     const rawData = [];
     const curr = new Date(startDate);
     while (curr <= endDate) {
       const dateStr = getAttributedDate(curr);
-      const dayLogs = filteredLogs.filter(log => log.attributed_date === dateStr);
+      const dayLogs = logsByDate[dateStr] || [];
       const totalSeconds = dayLogs.reduce((sum, log) => sum + log.duration_seconds, 0);
       
       rawData.push({
         date: dateStr,
-        totalSeconds
+        totalSeconds,
+        dayLogs
       });
       curr.setDate(curr.getDate() + 1);
     }
 
-    const grouped: Record<string, number> = {};
+    const grouped: Record<string, { totalSeconds: number; breakdown: Record<string, number> }> = {};
     rawData.forEach(d => {
       const date = new Date(d.date);
       let key: string;
@@ -178,7 +186,16 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
         // Month
         key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
       }
-      grouped[key] = (grouped[key] || 0) + d.totalSeconds;
+      
+      if (!grouped[key]) {
+        grouped[key] = { totalSeconds: 0, breakdown: {} };
+      }
+      grouped[key].totalSeconds += d.totalSeconds;
+      
+      // Add breakdown for this day to the group
+      d.dayLogs.forEach(log => {
+        grouped[key].breakdown[log.habit_id] = (grouped[key].breakdown[log.habit_id] || 0) + log.duration_seconds;
+      });
     });
 
     // Fill missing periods with 0 to ensure linear X-axis and fix "repeating/uneven" look
@@ -198,18 +215,18 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
         fillCurr.setMonth(fillCurr.getMonth() + 1);
       }
       if (!(key in grouped)) {
-        grouped[key] = 0;
+        grouped[key] = { totalSeconds: 0, breakdown: {} };
       }
     }
 
     const nowLocal = new Date();
     nowLocal.setHours(0, 0, 0, 0);
 
-    const data = Object.entries(grouped).sort().map(([dateStr, totalSeconds]) => {
+    const data = Object.entries(grouped).sort().map(([dateStr, groupData]) => {
       const parts = dateStr.split('-').map(Number);
       const keyDate = new Date(parts[0], parts[1] - 1, parts[2]);
       let isOngoing = false;
-      let estimatedSeconds = totalSeconds;
+      let estimatedSeconds = groupData.totalSeconds;
 
       if (trendGrouping === 'week') {
         const monday = new Date(keyDate);
@@ -220,7 +237,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
           // Calculate days passed in this week (Mon=1, Tue=2, etc.)
           const diffMs = nowLocal.getTime() - monday.getTime();
           const daysPassed = Math.round(diffMs / (24 * 3600 * 1000)) + 1;
-          estimatedSeconds = (totalSeconds / Math.max(1, daysPassed)) * 7;
+          estimatedSeconds = (groupData.totalSeconds / Math.max(1, daysPassed)) * 7;
         }
       } else {
         const firstDay = new Date(keyDate);
@@ -229,15 +246,16 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
           isOngoing = true;
           const daysPassed = nowLocal.getDate();
           const totalDays = lastDay.getDate();
-          estimatedSeconds = (totalSeconds / Math.max(1, daysPassed)) * totalDays;
+          estimatedSeconds = (groupData.totalSeconds / Math.max(1, daysPassed)) * totalDays;
         }
       }
 
       return {
         date: dateStr,
-        totalSeconds: isOngoing ? estimatedSeconds : totalSeconds,
-        actualSeconds: totalSeconds,
-        isEstimated: isOngoing
+        totalSeconds: isOngoing ? estimatedSeconds : groupData.totalSeconds,
+        actualSeconds: groupData.totalSeconds,
+        isEstimated: isOngoing,
+        breakdown: groupData.breakdown
       };
     });
 
@@ -522,17 +540,49 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const data = payload[0].payload;
+                    const breakdownEntries = Object.entries(data.breakdown || {})
+                      .map(([id, seconds]) => {
+                        const habit = habits.find(h => h.id === id);
+                        return { id, name: habit?.name, color: habit?.color, seconds: seconds as number };
+                      })
+                      .filter(b => b.seconds > 0)
+                      .sort((a, b) => b.seconds - a.seconds);
+
                     return (
-                      <div className="bg-slate-800 border border-slate-700 p-3 rounded-lg shadow-xl">
-                        <p className="text-slate-400 text-[10px] mb-1 font-bold uppercase tracking-widest">{data.date}</p>
-                        <p className="text-indigo-400 font-bold text-lg">
-                          {formatDuration(data.totalSeconds)}
-                          {data.isEstimated && <span className="text-[10px] ml-2 text-slate-500 italic opacity-70">(Est.)</span>}
+                      <div className="bg-slate-800 border border-slate-700 p-4 rounded-2xl shadow-2xl min-w-[180px] animate-in zoom-in-90 fade-in duration-200">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                          {trendGrouping === 'week' ? `Week of ${data.date}` : `Month of ${data.date.substring(0, 7)}`}
                         </p>
+                        
+                        <div className="space-y-2">
+                          {breakdownEntries.map(b => (
+                            <div key={b.id} className="flex items-center justify-between gap-3 text-left">
+                              <div className="flex items-center gap-1.5 overflow-hidden">
+                                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: COLOR_MAP[b.color || 'bg-indigo-500'] || '#6366f1' }} />
+                                <span className="text-[11px] font-bold text-slate-200 truncate">{b.name}</span>
+                              </div>
+                              <span className="text-[11px] font-black text-white whitespace-nowrap">{formatDuration(b.seconds)}</span>
+                            </div>
+                          ))}
+                          {breakdownEntries.length === 0 && (
+                            <p className="text-[11px] text-slate-500 italic">No activity recorded</p>
+                          )}
+                        </div>
+
+                        <div className="mt-2 pt-2 border-t border-slate-700 flex justify-between items-center">
+                          <span className="text-[9px] font-black text-slate-500 uppercase">
+                            {data.isEstimated ? 'Projected Total' : 'Total'}
+                          </span>
+                          <span className="text-[9px] font-black text-indigo-400">
+                            {formatDuration(data.totalSeconds)}
+                          </span>
+                        </div>
+
                         {data.isEstimated && (
-                          <p className="text-[10px] text-slate-500 mt-1 font-medium">
-                            Actual: {formatDuration(data.actualSeconds)}
-                          </p>
+                          <div className="mt-1 flex justify-between items-center">
+                            <span className="text-[9px] font-black text-slate-500 uppercase italic opacity-70">Actual So Far</span>
+                            <span className="text-[9px] font-black text-slate-400 opacity-70">{formatDuration(data.actualSeconds)}</span>
+                          </div>
                         )}
                       </div>
                     );
