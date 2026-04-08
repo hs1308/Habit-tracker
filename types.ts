@@ -39,6 +39,8 @@ export interface HabitLog {
   habit_name: string;       // New denormalized field
   user_name: string;        // New denormalized field
   log_created_date: string;  // New denormalized field
+  color: string;             // Denormalized for sync
+  icon: string;              // Denormalized for sync
   start_time: string;
   end_time: string;
   duration_seconds: number;

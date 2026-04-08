@@ -350,6 +350,8 @@ const App: React.FC = () => {
       habit_name: habit?.name || 'Unknown',
       user_name: currentUserNickname,
       log_created_date: getAttributedDate(new Date()),
+      color: habit?.color || 'bg-indigo-500',
+      icon: habit?.icon || 'Target',
       start_time: start.toISOString(),
       end_time: end.toISOString(),
       duration_seconds: durationSeconds,
@@ -377,7 +379,9 @@ const App: React.FC = () => {
       attributed_date: getAttributedDate(start),
       habit_name: habit?.name || 'Unknown',
       user_name: currentUserNickname,
-      log_created_date: getAttributedDate(new Date())
+      log_created_date: getAttributedDate(new Date()),
+      color: habit?.color || 'bg-indigo-500',
+      icon: habit?.icon || 'Target'
     };
 
     if (logId) {

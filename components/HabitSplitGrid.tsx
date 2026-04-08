@@ -2,7 +2,8 @@
 import React, { useMemo } from 'react';
 import { Habit, HabitLog } from '../types';
 import { formatDuration } from '../utils/dateUtils';
-import { Book, Dumbbell, Code, Brain, Target, Coffee, Music, Camera, Footprints, Flower2 } from 'lucide-react';
+import { ICON_MAP } from '../constants';
+import { Target } from 'lucide-react';
 
 interface HabitSplitGridProps {
   habits: Habit[];
@@ -11,19 +12,6 @@ interface HabitSplitGridProps {
   selectedHabitId: string | null;
   onSelectHabit: (id: string | null) => void;
 }
-
-const ICON_MAP: Record<string, any> = {
-  Reading: Book,
-  Exercising: Dumbbell,
-  Building: Code,
-  Learning: Brain,
-  Applying: Target,
-  Focusing: Coffee,
-  Creative: Camera,
-  Music: Music,
-  Running: Footprints,
-  Meditating: Flower2,
-};
 
 const HabitSplitGrid: React.FC<HabitSplitGridProps> = ({ 
   habits, 
@@ -62,7 +50,13 @@ const HabitSplitGrid: React.FC<HabitSplitGridProps> = ({
       
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {habitStats.map(habit => {
-          const Icon = ICON_MAP[habit.icon] || Target;
+          const fallbackIcon = logs.find(l => l.habit_id === habit.id)?.icon || 'Target';
+          const fallbackColor = logs.find(l => l.habit_id === habit.id)?.color || 'bg-indigo-500';
+          
+          const iconName = habit.icon || fallbackIcon;
+          const habitColor = habit.color || fallbackColor;
+          
+          const Icon = ICON_MAP[iconName] || Target;
           const isSelected = selectedHabitId === habit.id;
           const isDeleted = !!habit.deleted_at;
           
@@ -80,7 +74,7 @@ const HabitSplitGrid: React.FC<HabitSplitGridProps> = ({
                 <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
               )}
               
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:rotate-6 ${habit.color} bg-opacity-20`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:rotate-6 ${habitColor} bg-opacity-20`}>
                 <Icon size={22} className="text-white opacity-70" />
               </div>
               <div>

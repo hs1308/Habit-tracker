@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Rectan
 import { getDayName, formatDuration, getPeriodLabel, getCalendarGrid, getAttributedDate } from '../utils/dateUtils';
 import { HabitLog, Habit } from '../types';
 import { ChevronLeft, ChevronRight, LayoutGrid, BarChart2, TrendingUp } from 'lucide-react';
+import { COLOR_MAP } from '../constants';
 
 interface WeeklyChartProps {
   logs: HabitLog[];
@@ -20,20 +21,6 @@ interface WeeklyChartProps {
   trendGrouping: 'week' | 'month';
   onTrendGroupingChange: (grouping: 'week' | 'month') => void;
 }
-
-const COLOR_MAP: Record<string, string> = {
-  'bg-indigo-500': '#6366f1',
-  'bg-emerald-500': '#10b981',
-  'bg-purple-500': '#a855f7',
-  'bg-orange-500': '#f97316',
-  'bg-blue-500': '#3b82f6',
-  'bg-red-500': '#ef4444',
-  'bg-pink-500': '#ec4899',
-  'bg-amber-500': '#f59e0b',
-  'bg-cyan-500': '#06b6d4',
-  'bg-rose-500': '#f43f5e',
-  'bg-slate-500': '#64748b',
-};
 
 const WeeklyChart: React.FC<WeeklyChartProps> = ({ 
   logs, 
@@ -360,20 +347,26 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
             <p className="text-indigo-400 font-bold text-lg">{formatDuration(data.totalSeconds)}</p>
           ) : (
             <div className="space-y-2">
-              {activeHabitIdsInPeriod.map(habitId => {
-                const habitVal = data[habitId] || 0;
-                if (habitVal <= 0) return null;
-                const habit = habits.find(h => h.id === habitId);
-                return (
-                  <div key={habitId} className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <div className={`w-1.5 h-1.5 rounded-full shrink-0`} style={{ backgroundColor: COLOR_MAP[habit?.color || 'bg-indigo-500'] || '#6366f1' }} />
-                      <span className="text-[11px] font-medium text-slate-300 truncate">{habit?.name || 'Unknown'}</span>
+                {activeHabitIdsInPeriod.map(habitId => {
+                  const habitVal = data[habitId] || 0;
+                  if (habitVal <= 0) return null;
+                  const habit = habits.find(h => h.id === habitId);
+                  
+                  // Fallback to color from logs if habit not found in current habits array
+                  const fallbackColor = filteredLogs.find(l => l.habit_id === habitId)?.color || 'bg-indigo-500';
+                  const displayColor = habit?.color || fallbackColor;
+                  const displayName = habit?.name || filteredLogs.find(l => l.habit_id === habitId)?.habit_name || 'Unknown';
+
+                  return (
+                    <div key={habitId} className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <div className={`w-1.5 h-1.5 rounded-full shrink-0`} style={{ backgroundColor: COLOR_MAP[displayColor] || '#6366f1' }} />
+                        <span className="text-[11px] font-medium text-slate-300 truncate">{displayName}</span>
+                      </div>
+                      <span className="text-[11px] font-bold text-white whitespace-nowrap">{formatDuration(habitVal * 3600)}</span>
                     </div>
-                    <span className="text-[11px] font-bold text-white whitespace-nowrap">{formatDuration(habitVal * 3600)}</span>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           )}
         </div>
@@ -386,8 +379,15 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
     const dayLogs = filteredLogs.filter(log => log.attributed_date === date);
     return activeHabitIdsInPeriod.map(hid => {
       const h = habits.find(h => h.id === hid);
+      const fallbackColor = filteredLogs.find(l => l.habit_id === hid)?.color || 'bg-indigo-500';
+      const fallbackName = filteredLogs.find(l => l.habit_id === hid)?.habit_name || 'Unknown';
       const s = dayLogs.filter(l => l.habit_id === hid).reduce((sum, l) => sum + l.duration_seconds, 0);
-      return { id: hid, name: h?.name, color: h?.color, seconds: s };
+      return { 
+        id: hid, 
+        name: h?.name || fallbackName, 
+        color: h?.color || fallbackColor, 
+        seconds: s 
+      };
     }).filter(b => b.seconds > 0);
   };
 
@@ -489,11 +489,13 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
               <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
               {viewType === 'total' ? (
                 <Bar dataKey="totalHours" radius={[4, 4, 4, 4]}>
-                  {weekChartData.map((entry, index) => {
-                    const habit = selectedHabitId ? habits.find(h => h.id === selectedHabitId) : null;
-                    const fillColor = habit ? (COLOR_MAP[habit.color] || '#6366f1') : '#6366f1';
-                    return <Cell key={`cell-${index}`} fill={entry.totalHours > 0 ? fillColor : '#334155'} />;
-                  })}
+                    {weekChartData.map((entry, index) => {
+                      const habit = selectedHabitId ? habits.find(h => h.id === selectedHabitId) : null;
+                      const fallbackColor = selectedHabitId ? filteredLogs.find(l => l.habit_id === selectedHabitId)?.color : null;
+                      const displayColor = habit?.color || fallbackColor || 'bg-indigo-500';
+                      const fillColor = COLOR_MAP[displayColor] || '#6366f1';
+                      return <Cell key={`cell-${index}`} fill={entry.totalHours > 0 ? fillColor : '#334155'} />;
+                    })}
                 </Bar>
               ) : (
                 <>
@@ -503,7 +505,8 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                   )}
                   {activeHabitIdsInPeriod.map((habitId) => {
                     const habit = habits.find(h => h.id === habitId);
-                    const color = COLOR_MAP[habit?.color || 'bg-indigo-500'] || '#6366f1';
+                    const fallbackColor = filteredLogs.find(l => l.habit_id === habitId)?.color || 'bg-indigo-500';
+                    const color = COLOR_MAP[habit?.color || fallbackColor] || '#6366f1';
                     return <Bar key={habitId} dataKey={habitId} stackId="a" fill={color} shape={renderStackedBar} />;
                   })}
                 </>
@@ -543,7 +546,14 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                     const breakdownEntries = Object.entries(data.breakdown || {})
                       .map(([id, seconds]) => {
                         const habit = habits.find(h => h.id === id);
-                        return { id, name: habit?.name, color: habit?.color, seconds: seconds as number };
+                        const fallbackColor = filteredLogs.find(l => l.habit_id === id)?.color || 'bg-indigo-500';
+                        const fallbackName = filteredLogs.find(l => l.habit_id === id)?.habit_name || 'Unknown';
+                        return { 
+                          id, 
+                          name: habit?.name || fallbackName, 
+                          color: habit?.color || fallbackColor, 
+                          seconds: seconds as number 
+                        };
                       })
                       .filter(b => b.seconds > 0)
                       .sort((a, b) => b.seconds - a.seconds);
@@ -627,7 +637,8 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
               const hasActivity = daySeconds > 0;
               const scaleFactor = hasActivity ? 0.6 + ((daySeconds / maxDaySeconds) * 1.2) : 0;
               const habit = selectedHabitId ? habits.find(h => h.id === selectedHabitId) : null;
-              const circleColor = habit ? (COLOR_MAP[habit.color] || '#6366f1') : '#6366f1';
+              const fallbackColor = selectedHabitId ? filteredLogs.find(l => l.habit_id === selectedHabitId)?.color : null;
+              const circleColor = COLOR_MAP[habit?.color || fallbackColor || 'bg-indigo-500'] || '#6366f1';
 
               return (
                 <div 
