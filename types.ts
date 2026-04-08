@@ -3,8 +3,20 @@ export interface Profile {
   id: string;
   full_name: string;
   avatar_url: string;
+  email?: string; // Added for friend search
   timezone: string;
   notepad_content: string | null;
+}
+
+export interface Friendship {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  status: 'pending' | 'accepted' | 'declined';
+  created_at: string;
+  // Joined data
+  sender?: Profile;
+  receiver?: Profile;
 }
 
 export interface Habit {

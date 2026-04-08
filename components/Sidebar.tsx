@@ -6,8 +6,8 @@ import { Profile } from '../types';
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  currentView: 'dashboard' | 'logs' | 'settings' | 'notepad';
-  onNavigate: (view: 'dashboard' | 'logs' | 'settings' | 'notepad') => void;
+  currentView: 'dashboard' | 'logs' | 'settings' | 'notepad' | 'friend_view';
+  onNavigate: (view: 'dashboard' | 'logs' | 'settings' | 'notepad' | 'friend_view') => void;
   user: any;
   profile: Profile | null;
   onLogout: () => void;

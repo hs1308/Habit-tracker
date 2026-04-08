@@ -3,7 +3,7 @@ import './style.css';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Menu, Play, History, Plus, AlertCircle, StickyNote, ChevronRight } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './supabase';
-import { Habit, HabitLog, ActiveTimer, Profile } from './types';
+import { Habit, HabitLog, ActiveTimer, Profile, Friendship } from './types';
 import WeeklyChart from './components/WeeklyChart';
 import HabitSplitGrid from './components/HabitSplitGrid';
 import TimerOverlay from './components/TimerOverlay';
@@ -14,6 +14,10 @@ import SettingsView from './components/SettingsView';
 import OnboardingView from './components/OnboardingView';
 import AuthView from './components/AuthView';
 import NotepadView from './components/NotepadView';
+import FriendsSection from './components/FriendsSection';
+import AddFriendModal from './components/AddFriendModal';
+import FriendRequestsModal from './components/FriendRequestsModal';
+import FriendDashboardView from './components/FriendDashboardView';
 import { getAttributedDate, getPeriodDates } from './utils/dateUtils';
 
 const App: React.FC = () => {
@@ -29,11 +33,19 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
   
-  const [currentView, setCurrentView] = useState<'dashboard' | 'logs' | 'settings' | 'notepad'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'logs' | 'settings' | 'notepad' | 'friend_view'>('dashboard');
+  const [selectedFriend, setSelectedFriend] = useState<Profile | null>(null);
   const [viewMode, setViewMode] = useState<'week' | 'month' | 'more'>('week');
   const [referenceDate, setReferenceDate] = useState(new Date());
   const [trendRange, setTrendRange] = useState<30 | 60 | 90 | 'lifetime'>(30);
   const [trendGrouping, setTrendGrouping] = useState<'week' | 'month'>('week');
+
+  // Social state
+  const [friends, setFriends] = useState<Profile[]>([]);
+  const [receivedRequests, setReceivedRequests] = useState<Friendship[]>([]);
+  const [sentRequests, setSentRequests] = useState<Friendship[]>([]);
+  const [showAddFriendModal, setShowAddFriendModal] = useState(false);
+  const [showRequestsModal, setShowRequestsModal] = useState(false);
 
   // Notepad specific state
   const [notepadContent, setNotepadContent] = useState('');
@@ -70,6 +82,19 @@ const App: React.FC = () => {
     if (session?.user && isSupabaseConfigured && supabase) {
       fetchUserData();
       fetchProfile();
+      fetchSocialData();
+
+      // Real-time subscription for friendships
+      const friendshipSubscription = supabase
+        .channel('friendship_changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, () => {
+          fetchSocialData();
+        })
+        .subscribe();
+
+      return () => {
+        friendshipSubscription.unsubscribe();
+      };
     }
   }, [session]);
 
@@ -85,7 +110,94 @@ const App: React.FC = () => {
   const fetchProfile = async () => {
     if (!session?.user || !supabase) return;
     const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-    if (data) setProfile(data);
+    if (data) {
+      setProfile(data);
+      // Ensure email is in profiles table for social features
+      if (!data.email && session.user.email) {
+        await supabase.from('profiles').update({ email: session.user.email }).eq('id', session.user.id);
+      }
+    }
+  };
+
+  const fetchSocialData = async () => {
+    if (!session?.user || !supabase) return;
+    const userId = session.user.id;
+
+    try {
+      // Fetch friendships where user is sender or receiver
+      const { data: friendships, error } = await supabase
+        .from('friendships')
+        .select(`
+          *,
+          sender:profiles!friendships_sender_id_fkey(*),
+          receiver:profiles!friendships_receiver_id_fkey(*)
+        `)
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+
+      if (error) throw error;
+
+      const accepted = friendships.filter(f => f.status === 'accepted');
+      const received = friendships.filter(f => f.status === 'pending' && f.receiver_id === userId);
+      const sent = friendships.filter(f => f.status === 'pending' && f.sender_id === userId);
+
+      // Extract friend profiles
+      const friendProfiles = accepted.map(f => f.sender_id === userId ? f.receiver : f.sender) as Profile[];
+      
+      setFriends(friendProfiles);
+      setReceivedRequests(received);
+      setSentRequests(sent);
+    } catch (err) {
+      console.error("Error fetching social data:", err);
+    }
+  };
+
+  const sendFriendRequest = async (email: string) => {
+    if (!session?.user || !supabase) return;
+    const userId = session.user.id;
+
+    // 1. Find user by email
+    const { data: targetUser, error: findError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (findError || !targetUser) throw new Error("User not found with this email");
+    if (targetUser.id === userId) throw new Error("You cannot add yourself");
+
+    // 2. Check if friendship already exists
+    const { data: existing } = await supabase
+      .from('friendships')
+      .select('*')
+      .or(`and(sender_id.eq.${userId},receiver_id.eq.${targetUser.id}),and(sender_id.eq.${targetUser.id},receiver_id.eq.${userId})`)
+      .single();
+
+    if (existing) {
+      if (existing.status === 'accepted') throw new Error("You are already friends");
+      throw new Error("A request is already pending");
+    }
+
+    // 3. Insert new request
+    const { error: insertError } = await supabase
+      .from('friendships')
+      .insert({ sender_id: userId, receiver_id: targetUser.id, status: 'pending' });
+
+    if (insertError) throw insertError;
+    fetchSocialData();
+  };
+
+  const acceptFriendRequest = async (requestId: string) => {
+    if (!supabase) return;
+    const { error } = await supabase.from('friendships').update({ status: 'accepted' }).eq('id', requestId);
+    if (error) console.error("Error accepting request:", error);
+    fetchSocialData();
+  };
+
+  const declineFriendRequest = async (requestId: string) => {
+    if (!supabase) return;
+    const { error } = await supabase.from('friendships').delete().eq('id', requestId);
+    if (error) console.error("Error declining request:", error);
+    fetchSocialData();
   };
 
   const fetchUserData = async () => {
@@ -416,6 +528,17 @@ const App: React.FC = () => {
             onSelectHabit={setSelectedHabitId} 
           />
 
+          <FriendsSection 
+            friends={friends}
+            hasNewRequests={receivedRequests.length > 0}
+            onAddFriend={() => setShowAddFriendModal(true)}
+            onViewRequests={() => setShowRequestsModal(true)}
+            onSelectFriend={(friend) => {
+              setSelectedFriend(friend);
+              setCurrentView('friend_view');
+            }}
+          />
+
           <section className="pb-10 flex justify-center">
             <button 
               onClick={() => setCurrentView('notepad')}
@@ -456,6 +579,31 @@ const App: React.FC = () => {
           onAddHabit={handleAddHabit} 
           onDeleteHabit={handleDeleteHabit} 
           onBack={() => setCurrentView('dashboard')} 
+        />
+      )}
+
+      {currentView === 'friend_view' && selectedFriend && (
+        <FriendDashboardView 
+          friend={selectedFriend}
+          onBack={() => setCurrentView('dashboard')}
+        />
+      )}
+      
+      {showAddFriendModal && (
+        <AddFriendModal 
+          onClose={() => setShowAddFriendModal(false)}
+          onSendRequest={sendFriendRequest}
+        />
+      )}
+
+      {showRequestsModal && (
+        <FriendRequestsModal 
+          received={receivedRequests}
+          sent={sentRequests}
+          onAccept={acceptFriendRequest}
+          onDecline={declineFriendRequest}
+          onCancel={declineFriendRequest}
+          onClose={() => setShowRequestsModal(false)}
         />
       )}
       
