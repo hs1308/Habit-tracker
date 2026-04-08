@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { Habit, HabitLog } from '../types';
 import { formatDuration } from '../utils/dateUtils';
-import { Book, Dumbbell, Code, Brain, Target, Coffee, Music, Camera } from 'lucide-react';
+import { Book, Dumbbell, Code, Brain, Target, Coffee, Music, Camera, Footprints, Flower2 } from 'lucide-react';
 
 interface HabitSplitGridProps {
   habits: Habit[];
@@ -21,6 +21,8 @@ const ICON_MAP: Record<string, any> = {
   Focusing: Coffee,
   Creative: Camera,
   Music: Music,
+  Running: Footprints,
+  Meditating: Flower2,
 };
 
 const HabitSplitGrid: React.FC<HabitSplitGridProps> = ({ 
@@ -78,8 +80,8 @@ const HabitSplitGrid: React.FC<HabitSplitGridProps> = ({
                 <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
               )}
               
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:rotate-6 ${habit.color} bg-opacity-20 text-${habit.color.split('-')[1]}-400`}>
-                <Icon size={22} />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:rotate-6 ${habit.color} bg-opacity-20`}>
+                <Icon size={22} className="text-white opacity-70" />
               </div>
               <div>
                 <p className={`text-2xl font-bold mb-1 ${isSelected ? 'text-indigo-400' : 'text-slate-100'}`}>

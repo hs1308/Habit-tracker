@@ -200,6 +200,27 @@ const App: React.FC = () => {
     fetchSocialData();
   };
 
+  const removeFriend = async (friendId: string) => {
+    if (!session?.user || !supabase) return;
+    const userId = session.user.id;
+
+    try {
+      const { error } = await supabase
+        .from('friendships')
+        .delete()
+        .or(`and(sender_id.eq.${userId},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${userId})`);
+
+      if (error) throw error;
+      
+      setFriends(prev => prev.filter(f => f.id !== friendId));
+      setCurrentView('dashboard');
+      setSelectedFriend(null);
+    } catch (err) {
+      console.error("Error removing friend:", err);
+      alert("Failed to remove friend");
+    }
+  };
+
   const fetchUserData = async () => {
     if (!session?.user || !supabase) return;
     try {
@@ -371,7 +392,7 @@ const App: React.FC = () => {
     setShowRecordModal(false);
   };
 
-  const handleAddHabit = async (name: string, color: string) => {
+  const handleAddHabit = async (name: string, color: string, icon: string = 'Target') => {
     if (!session?.user || !supabase) return;
     const userId = session.user.id;
     const { error } = await supabase.from('habits').insert([{
@@ -379,7 +400,7 @@ const App: React.FC = () => {
       habit_name: name, 
       user_name: currentUserNickname,
       log_created_date: getAttributedDate(new Date()), 
-      icon: 'Target', 
+      icon, 
       color, 
       user_id: userId
     }]);
@@ -389,6 +410,23 @@ const App: React.FC = () => {
       alert("Could not add habit: " + error.message);
       return;
     }
+    await fetchUserData();
+  };
+
+  const handleUpdateHabit = async (id: string, updates: { name?: string; color?: string; icon?: string }) => {
+    if (!supabase || !session?.user) return;
+    
+    const { error } = await supabase
+      .from('habits')
+      .update(updates)
+      .eq('id', id)
+      .eq('user_id', session.user.id);
+    
+    if (error) {
+      console.error("Error updating habit:", error);
+      throw error; 
+    }
+    
     await fetchUserData();
   };
 
@@ -577,6 +615,7 @@ const App: React.FC = () => {
         <SettingsView 
           habits={habits} 
           onAddHabit={handleAddHabit} 
+          onUpdateHabit={handleUpdateHabit}
           onDeleteHabit={handleDeleteHabit} 
           onBack={() => setCurrentView('dashboard')} 
         />
@@ -586,6 +625,7 @@ const App: React.FC = () => {
         <FriendDashboardView 
           friend={selectedFriend}
           onBack={() => setCurrentView('dashboard')}
+          onRemoveFriend={removeFriend}
         />
       )}
       
