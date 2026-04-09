@@ -69,23 +69,44 @@ const AuthView: React.FC = () => {
         });
 
         if (signInError) {
-          // If sign in fails (likely user doesn't exist), try to sign up
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email: demoEmail,
-            password: demoPass,
-            options: {
-              data: { full_name: 'Demo User' }
+          // Only try signup if it's a "Invalid login credentials" error (user not found)
+          // or if the error message suggests the user doesn't exist.
+          const isUserNotFound = signInError.message.toLowerCase().includes('invalid') || 
+                                signInError.status === 400;
+          
+          if (isUserNotFound) {
+            const hasAttemptedSignup = sessionStorage.getItem('demo_signup_attempted');
+            
+            if (hasAttemptedSignup) {
+              throw new Error("Demo account not found. Please ensure you've run the SQL setup script in your Supabase dashboard.");
             }
-          });
-          
-          if (signUpError) throw signUpError;
-          
-          if (signUpData.user) {
-            await supabase.from('profiles').upsert({ 
-              id: signUpData.user.id, 
-              full_name: 'Demo User',
-              timezone: 'UTC'
+
+            sessionStorage.setItem('demo_signup_attempted', 'true');
+            
+            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+              email: demoEmail,
+              password: demoPass,
+              options: {
+                data: { full_name: 'Demo User' }
+              }
             });
+            
+            if (signUpError) {
+              if (signUpError.status === 429) {
+                throw new Error("Demo setup is rate-limited. Please try again in a few minutes or run the SQL setup script.");
+              }
+              throw signUpError;
+            }
+            
+            if (signUpData.user) {
+              await supabase.from('profiles').upsert({ 
+                id: signUpData.user.id, 
+                full_name: 'Demo User',
+                timezone: 'UTC'
+              });
+            }
+          } else {
+            throw signInError;
           }
         } else if (signInData.user) {
           // Ensure profile exists for existing demo user
@@ -121,8 +142,8 @@ const AuthView: React.FC = () => {
         
         {error ? (
           <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center gap-3 animate-in slide-in-from-top-2 max-w-md mx-auto">
-            <ShieldAlert size={18} className="text-red-500" />
-            <p className="text-sm font-bold text-red-400 italic uppercase tracking-tighter">Auth Error: Please try again</p>
+            <ShieldAlert size={18} className="text-red-500 shrink-0" />
+            <p className="text-xs font-bold text-red-400 uppercase tracking-tight text-left">{error}</p>
           </div>
         ) : (
           <p className="text-slate-400 text-lg mb-12 max-w-prose mx-auto italic font-medium px-4">
