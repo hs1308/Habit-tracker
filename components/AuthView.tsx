@@ -64,6 +64,7 @@ const AuthView: React.FC = () => {
         
         if (data.user) {
           console.log("Anonymous login successful, seeding demo data...");
+          sessionStorage.setItem('is_demo_mode', 'true');
           // Call the RPC to populate 5 months of history for this new anonymous user
           const { error: rpcError } = await supabase.rpc('seed_demo_data');
           if (rpcError) {

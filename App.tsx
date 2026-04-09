@@ -542,7 +542,7 @@ const App: React.FC = () => {
   );
 
   // Skip onboarding for Demo User to show the dashboard even if habits are empty (expecting SQL seeding)
-  const isDemoUser = profile?.full_name === 'Demo User';
+  const isDemoUser = profile?.full_name === 'Demo User' || sessionStorage.getItem('is_demo_mode') === 'true';
   if (habits.length === 0 && !isDemoUser) return <OnboardingView onComplete={handleOnboardingComplete} onLogout={handleLogout} />;
 
   const activeTimerHabit = habits.find(h => h.id === activeTimer?.habitId);
