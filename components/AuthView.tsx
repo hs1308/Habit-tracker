@@ -58,64 +58,18 @@ const AuthView: React.FC = () => {
     setGuestLoading(true);
     try {
       if (overrideName === 'Demo User') {
-        // Shared Demo Account logic
-        const demoEmail = 'demo.consistent@gmail.com';
-        const demoPass = 'demo123456';
+        // Anonymous Demo Flow (No email required, no bounces)
+        const { data, error: authError } = await supabase.auth.signInAnonymously();
+        if (authError) throw authError;
         
-        // Try to sign in
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: demoEmail,
-          password: demoPass,
-        });
-
-        if (signInError) {
-          // If it's a "Invalid login credentials" or "Email not confirmed" or "Invalid email"
-          const errorMsg = signInError.message.toLowerCase();
-          const isUserNotFound = errorMsg.includes('invalid') || errorMsg.includes('not found') || signInError.status === 400;
-          
-          if (isUserNotFound) {
-            const hasAttemptedSignup = sessionStorage.getItem('demo_signup_attempted');
-            
-            if (hasAttemptedSignup) {
-              throw new Error("Demo account not found. Please ensure you've run the LATEST SQL setup script in your Supabase dashboard.");
-            }
-
-            sessionStorage.setItem('demo_signup_attempted', 'true');
-            
-            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-              email: demoEmail,
-              password: demoPass,
-              options: {
-                data: { full_name: 'Demo User' }
-              }
-            });
-            
-            if (signUpError) {
-              if (signUpError.status === 429) {
-                throw new Error("Demo setup is rate-limited. Please try again in a few minutes.");
-              }
-              throw signUpError;
-            }
-            
-            if (signUpData.user) {
-              await supabase.from('profiles').upsert({ 
-                id: signUpData.user.id, 
-                full_name: 'Demo User',
-                email: demoEmail,
-                timezone: 'UTC'
-              });
-            }
-          } else {
-            throw signInError;
+        if (data.user) {
+          console.log("Anonymous login successful, seeding demo data...");
+          // Call the RPC to populate 5 months of history for this new anonymous user
+          const { error: rpcError } = await supabase.rpc('seed_demo_data');
+          if (rpcError) {
+            console.error("Seeding error:", rpcError);
+            // Even if seeding fails, we let them in
           }
-        } else if (signInData.user) {
-          // Ensure profile exists for existing demo user
-          await supabase.from('profiles').upsert({ 
-            id: signInData.user.id, 
-            full_name: 'Demo User',
-            email: demoEmail,
-            timezone: 'UTC'
-          });
         }
       } else {
         // Standard Anonymous Guest logic
