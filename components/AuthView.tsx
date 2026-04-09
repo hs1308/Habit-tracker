@@ -59,7 +59,7 @@ const AuthView: React.FC = () => {
     try {
       if (overrideName === 'Demo User') {
         // Shared Demo Account logic
-        const demoEmail = 'demo@beconsistent.com';
+        const demoEmail = 'demo.consistent@gmail.com';
         const demoPass = 'demo123456';
         
         // Try to sign in
@@ -69,16 +69,15 @@ const AuthView: React.FC = () => {
         });
 
         if (signInError) {
-          // Only try signup if it's a "Invalid login credentials" error (user not found)
-          // or if the error message suggests the user doesn't exist.
-          const isUserNotFound = signInError.message.toLowerCase().includes('invalid') || 
-                                signInError.status === 400;
+          // If it's a "Invalid login credentials" or "Email not confirmed" or "Invalid email"
+          const errorMsg = signInError.message.toLowerCase();
+          const isUserNotFound = errorMsg.includes('invalid') || errorMsg.includes('not found') || signInError.status === 400;
           
           if (isUserNotFound) {
             const hasAttemptedSignup = sessionStorage.getItem('demo_signup_attempted');
             
             if (hasAttemptedSignup) {
-              throw new Error("Demo account not found. Please ensure you've run the SQL setup script in your Supabase dashboard.");
+              throw new Error("Demo account not found. Please ensure you've run the LATEST SQL setup script in your Supabase dashboard.");
             }
 
             sessionStorage.setItem('demo_signup_attempted', 'true');
@@ -93,7 +92,7 @@ const AuthView: React.FC = () => {
             
             if (signUpError) {
               if (signUpError.status === 429) {
-                throw new Error("Demo setup is rate-limited. Please try again in a few minutes or run the SQL setup script.");
+                throw new Error("Demo setup is rate-limited. Please try again in a few minutes.");
               }
               throw signUpError;
             }
@@ -102,6 +101,7 @@ const AuthView: React.FC = () => {
               await supabase.from('profiles').upsert({ 
                 id: signUpData.user.id, 
                 full_name: 'Demo User',
+                email: demoEmail,
                 timezone: 'UTC'
               });
             }
@@ -113,6 +113,7 @@ const AuthView: React.FC = () => {
           await supabase.from('profiles').upsert({ 
             id: signInData.user.id, 
             full_name: 'Demo User',
+            email: demoEmail,
             timezone: 'UTC'
           });
         }
