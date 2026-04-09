@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { TrendingUp, UserCircle, ShieldAlert, ArrowRight, Loader2 } from 'lucide-react';
+import { TrendingUp, UserCircle, ShieldAlert, ArrowRight, Loader2, Sparkles } from 'lucide-react';
 
 const AuthView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
@@ -49,19 +49,60 @@ const AuthView: React.FC = () => {
     }
   };
 
-  const handleGuestLoginSubmit = async (e?: React.FormEvent) => {
+  const handleGuestLoginSubmit = async (e?: React.FormEvent, overrideName?: string) => {
     if (e) e.preventDefault();
-    if (!supabase || !guestName.trim()) return;
+    const nameToUse = overrideName || guestName;
+    if (!supabase || !nameToUse.trim()) return;
     
     setError(null);
     setGuestLoading(true);
     try {
-      const { data, error: authError } = await supabase.auth.signInAnonymously();
-      if (authError) throw authError;
-      
-      // Immediately set the guest name in the profile table
-      if (data.user) {
-        await supabase.from('profiles').update({ full_name: guestName.trim() }).eq('id', data.user.id);
+      if (overrideName === 'Demo User') {
+        // Shared Demo Account logic
+        const demoEmail = 'demo@beconsistent.com';
+        const demoPass = 'demo123456';
+        
+        // Try to sign in
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: demoEmail,
+          password: demoPass,
+        });
+
+        if (signInError) {
+          // If sign in fails (likely user doesn't exist), try to sign up
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: demoEmail,
+            password: demoPass,
+            options: {
+              data: { full_name: 'Demo User' }
+            }
+          });
+          
+          if (signUpError) throw signUpError;
+          
+          if (signUpData.user) {
+            await supabase.from('profiles').upsert({ 
+              id: signUpData.user.id, 
+              full_name: 'Demo User',
+              timezone: 'UTC'
+            });
+          }
+        } else if (signInData.user) {
+          // Ensure profile exists for existing demo user
+          await supabase.from('profiles').upsert({ 
+            id: signInData.user.id, 
+            full_name: 'Demo User',
+            timezone: 'UTC'
+          });
+        }
+      } else {
+        // Standard Anonymous Guest logic
+        const { data, error: authError } = await supabase.auth.signInAnonymously();
+        if (authError) throw authError;
+        
+        if (data.user) {
+          await supabase.from('profiles').update({ full_name: nameToUse.trim() }).eq('id', data.user.id);
+        }
       }
     } catch (err: any) {
       setError(err.message);
@@ -107,12 +148,22 @@ const AuthView: React.FC = () => {
                 )}
               </button>
 
+              {/* Guest Access Commented Out
               <button 
                 onClick={() => setShowGuestNamePrompt(true)}
                 disabled={loading || guestLoading}
                 className="w-full py-5 bg-slate-900 text-slate-400 font-bold text-lg rounded-[2.5rem] border border-slate-800 hover:bg-slate-800 hover:text-white transition-all active:scale-[0.98] flex items-center justify-center gap-4 group disabled:opacity-50"
               >
                 <UserCircle size={24} className="text-slate-600 group-hover:text-indigo-400 transition-colors" /> Guest Access
+              </button>
+              */}
+
+              <button 
+                onClick={() => handleGuestLoginSubmit(undefined, 'Demo User')}
+                disabled={loading || guestLoading}
+                className="w-full py-5 bg-indigo-600/10 text-indigo-400 font-bold text-lg rounded-[2.5rem] border border-indigo-500/20 hover:bg-indigo-600/20 hover:text-indigo-300 transition-all active:scale-[0.98] flex items-center justify-center gap-4 group disabled:opacity-50"
+              >
+                <Sparkles size={24} className="text-indigo-500 group-hover:scale-110 transition-transform" /> Demo Flow
               </button>
             </>
           ) : (

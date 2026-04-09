@@ -318,7 +318,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       isBottom ? r : 0
     ];
 
-    return <Rectangle {...props} radius={radius} />;
+    return <Rectangle {...props} radius={radius} stroke="none" strokeWidth={0} />;
   };
 
   const calendarGrid = useMemo(() => {
@@ -474,7 +474,11 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       {viewMode === 'week' && (
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={weekChartData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+            <BarChart 
+              data={weekChartData} 
+              margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
+              style={{ outline: 'none' }}
+            >
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} dy={10} interval={0} />
               <YAxis 
                 axisLine={false} 
@@ -486,9 +490,19 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                 allowDecimals={false}
                 domain={[0, 'auto']}
               />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+              <Tooltip 
+                content={<CustomTooltip />} 
+                cursor={<Rectangle fill="rgba(255,255,255,0.05)" stroke="none" strokeWidth={0} strokeOpacity={0} />} 
+              />
               {viewType === 'total' ? (
-                <Bar dataKey="totalHours" radius={[4, 4, 4, 4]}>
+                <Bar 
+                  dataKey="totalHours" 
+                  radius={[4, 4, 4, 4]} 
+                  stroke="none" 
+                  strokeWidth={0} 
+                  activeBar={false}
+                  isAnimationActive={false}
+                >
                     {weekChartData.map((entry, index) => {
                       const habit = selectedHabitId ? habits.find(h => h.id === selectedHabitId) : null;
                       const fallbackColor = selectedHabitId ? filteredLogs.find(l => l.habit_id === selectedHabitId)?.color : null;
@@ -507,7 +521,19 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                     const habit = habits.find(h => h.id === habitId);
                     const fallbackColor = filteredLogs.find(l => l.habit_id === habitId)?.color || 'bg-indigo-500';
                     const color = COLOR_MAP[habit?.color || fallbackColor] || '#6366f1';
-                    return <Bar key={habitId} dataKey={habitId} stackId="a" fill={color} shape={renderStackedBar} />;
+                    return (
+                      <Bar 
+                        key={habitId} 
+                        dataKey={habitId} 
+                        stackId="a" 
+                        fill={color} 
+                        shape={renderStackedBar} 
+                        stroke="none" 
+                        strokeWidth={0} 
+                        activeBar={false} 
+                        isAnimationActive={false}
+                      />
+                    );
                   })}
                 </>
               )}
@@ -519,7 +545,11 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       {viewMode === 'more' && (
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={trendChartData} margin={{ top: 10, right: 8, left: 0, bottom: 20 }}>
+            <LineChart 
+              data={trendChartData} 
+              margin={{ top: 10, right: 8, left: 0, bottom: 20 }}
+              style={{ outline: 'none' }}
+            >
               <XAxis 
                 dataKey="date" 
                 axisLine={false}
@@ -606,7 +636,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                 stroke="#6366f1" 
                 strokeWidth={3} 
                 dot={trendChartData.length < 40}
-                activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+                activeDot={{ r: 6, fill: '#6366f1', stroke: 'none', strokeWidth: 0 }}
                 connectNulls={true}
                 isAnimationActive={false}
               />
@@ -617,7 +647,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
                 strokeWidth={3} 
                 strokeDasharray="5 5"
                 dot={trendChartData.length < 40}
-                activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+                activeDot={{ r: 6, fill: '#6366f1', stroke: 'none', strokeWidth: 0 }}
                 connectNulls={true}
                 isAnimationActive={false}
               />

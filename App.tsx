@@ -29,6 +29,10 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<HabitLog[]>([]);
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
   const [showRecordModal, setShowRecordModal] = useState(false);
+  const [overlapConfirmation, setOverlapConfirmation] = useState<{
+    pendingAction: () => Promise<void>;
+    overlappingLogs: HabitLog[];
+  } | null>(null);
   const [isTimerPickerOpen, setIsTimerPickerOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
@@ -63,11 +67,17 @@ const App: React.FC = () => {
       if (!supabase) return;
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       setSession(currentSession);
+      if (currentSession?.user) {
+        console.log("Logged in as:", currentSession.user.id);
+      }
       setLoading(false);
     };
     initAuth();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (session?.user) {
+        console.log("Auth Event:", event, "User ID:", session.user.id);
+      }
       if (event === 'SIGNED_OUT') {
         setProfile(null);
         setHabits([]);
@@ -237,6 +247,15 @@ const App: React.FC = () => {
     }
   };
 
+  const checkOverlaps = (start: Date, end: Date, excludeLogId?: string) => {
+    return logs.filter(log => {
+      if (log.id === excludeLogId) return false;
+      const logStart = new Date(log.start_time);
+      const logEnd = new Date(log.end_time);
+      return (start < logEnd) && (end > logStart);
+    });
+  };
+
   const updateNickname = async (name: string) => {
     if (!session?.user || !supabase) return;
     const { error } = await supabase.from('profiles').update({ full_name: name }).eq('id', session.user.id);
@@ -344,24 +363,38 @@ const App: React.FC = () => {
     const start = new Date(activeTimer.startTime);
     const end = new Date(activeTimer.startTime + durationSeconds * 1000);
 
-    const newLogEntry = {
-      habit_id: activeTimer.habitId,
-      user_id: userId,
-      habit_name: habit?.name || 'Unknown',
-      user_name: currentUserNickname,
-      log_created_date: getAttributedDate(new Date()),
-      color: habit?.color || 'bg-indigo-500',
-      icon: habit?.icon || 'Target',
-      start_time: start.toISOString(),
-      end_time: end.toISOString(),
-      duration_seconds: durationSeconds,
-      attributed_date: getAttributedDate(start),
+    const executeSave = async () => {
+      if (!supabase) return;
+      const newLogEntry = {
+        habit_id: activeTimer.habitId,
+        user_id: userId,
+        habit_name: habit?.name || 'Unknown',
+        user_name: currentUserNickname,
+        log_created_date: getAttributedDate(new Date()),
+        color: habit?.color || 'bg-indigo-500',
+        icon: habit?.icon || 'Target',
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
+        duration_seconds: durationSeconds,
+        attributed_date: getAttributedDate(start),
+      };
+
+      const { error } = await supabase.from('habit_logs').insert([newLogEntry]);
+      if (error) console.error("Error logging activity:", error);
+      await fetchUserData();
+      setActiveTimer(null);
+      setOverlapConfirmation(null);
     };
 
-    const { error } = await supabase.from('habit_logs').insert([newLogEntry]);
-    if (error) console.error("Error logging activity:", error);
-    await fetchUserData();
-    setActiveTimer(null);
+    const overlapping = checkOverlaps(start, end);
+    if (overlapping.length > 0) {
+      setOverlapConfirmation({
+        pendingAction: executeSave,
+        overlappingLogs: overlapping
+      });
+    } else {
+      await executeSave();
+    }
   };
 
   const handleManualRecord = async (habitId: string, startStr: string, endStr: string, logId?: string) => {
@@ -369,31 +402,46 @@ const App: React.FC = () => {
     const userId = session.user.id;
     const habit = habits.find(h => h.id === habitId);
     const start = new Date(startStr);
-    const duration = Math.floor((new Date(endStr).getTime() - start.getTime()) / 1000);
+    const end = new Date(endStr);
+    const duration = Math.floor((end.getTime() - start.getTime()) / 1000);
 
-    const payload: any = {
-      habit_id: habitId,
-      start_time: startStr,
-      end_time: endStr,
-      duration_seconds: duration,
-      attributed_date: getAttributedDate(start),
-      habit_name: habit?.name || 'Unknown',
-      user_name: currentUserNickname,
-      log_created_date: getAttributedDate(new Date()),
-      color: habit?.color || 'bg-indigo-500',
-      icon: habit?.icon || 'Target'
+    const executeSave = async () => {
+      if (!supabase) return;
+      const payload: any = {
+        habit_id: habitId,
+        start_time: startStr,
+        end_time: endStr,
+        duration_seconds: duration,
+        attributed_date: getAttributedDate(start),
+        habit_name: habit?.name || 'Unknown',
+        user_name: currentUserNickname,
+        log_created_date: getAttributedDate(new Date()),
+        color: habit?.color || 'bg-indigo-500',
+        icon: habit?.icon || 'Target'
+      };
+
+      if (logId) {
+        const { error } = await supabase.from('habit_logs').update(payload).eq('id', logId);
+        if (error) console.error("Error updating log:", error);
+      } else {
+        payload.user_id = userId;
+        const { error } = await supabase.from('habit_logs').insert([payload]);
+        if (error) console.error("Error inserting log:", error);
+      }
+      await fetchUserData();
+      setShowRecordModal(false);
+      setOverlapConfirmation(null);
     };
 
-    if (logId) {
-      const { error } = await supabase.from('habit_logs').update(payload).eq('id', logId);
-      if (error) console.error("Error updating log:", error);
+    const overlapping = checkOverlaps(start, end, logId);
+    if (overlapping.length > 0) {
+      setOverlapConfirmation({
+        pendingAction: executeSave,
+        overlappingLogs: overlapping
+      });
     } else {
-      payload.user_id = userId;
-      const { error } = await supabase.from('habit_logs').insert([payload]);
-      if (error) console.error("Error inserting log:", error);
+      await executeSave();
     }
-    await fetchUserData();
-    setShowRecordModal(false);
   };
 
   const handleAddHabit = async (name: string, color: string, icon: string = 'Target') => {
@@ -493,7 +541,9 @@ const App: React.FC = () => {
     </div>
   );
 
-  if (habits.length === 0) return <OnboardingView onComplete={handleOnboardingComplete} onLogout={handleLogout} />;
+  // Skip onboarding for Demo User to show the dashboard even if habits are empty (expecting SQL seeding)
+  const isDemoUser = profile?.full_name === 'Demo User';
+  if (habits.length === 0 && !isDemoUser) return <OnboardingView onComplete={handleOnboardingComplete} onLogout={handleLogout} />;
 
   const activeTimerHabit = habits.find(h => h.id === activeTimer?.habitId);
 
@@ -649,6 +699,52 @@ const App: React.FC = () => {
           onCancel={declineFriendRequest}
           onClose={() => setShowRequestsModal(false)}
         />
+      )}
+
+      {overlapConfirmation && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95">
+            <div className="w-16 h-16 bg-orange-500/10 rounded-3xl flex items-center justify-center text-orange-500 mb-6 mx-auto border border-orange-500/20">
+              <AlertCircle size={32} />
+            </div>
+            <h3 className="text-xl font-black text-white text-center mb-2 italic">Time Overlap Detected</h3>
+            <p className="text-slate-400 text-center text-sm mb-6">
+              This log overlaps with the following existing activities:
+            </p>
+            
+            <div className="space-y-3 mb-8 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+              {overlapConfirmation.overlappingLogs.map(log => (
+                <div key={log.id} className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-slate-200 text-sm">{log.habit_name}</p>
+                    <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
+                      {new Date(log.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
+                      {new Date(log.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <div className={`w-2 h-2 rounded-full ${log.color || 'bg-indigo-500'}`} />
+                </div>
+              ))}
+            </div>
+
+            <p className="text-white font-bold text-center mb-6">Are you sure you want to create overlapping logs?</p>
+
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setOverlapConfirmation(null)}
+                className="flex-1 py-4 bg-slate-800 text-slate-300 font-black rounded-2xl hover:bg-slate-700 transition-colors"
+              >
+                No, Cancel
+              </button>
+              <button 
+                onClick={() => overlapConfirmation.pendingAction()}
+                className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/20"
+              >
+                Yes, Create
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       
       {isTimerPickerOpen && (

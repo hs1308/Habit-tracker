@@ -60,6 +60,12 @@ const RecordActivityModal: React.FC<RecordActivityModalProps> = ({ habits, onClo
     const durationMs = endDateTime.getTime() - startDateTime.getTime();
     const sixHoursMs = 6 * 60 * 60 * 1000;
     
+    const now = new Date();
+    if (endDateTime > now) {
+      alert("You can't make an entry for future activities in advance.");
+      return;
+    }
+
     if (durationMs > sixHoursMs) {
       alert("Session cannot exceed 6 hours. Please split the entry.");
       return;

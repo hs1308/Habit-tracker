@@ -46,3 +46,21 @@ body {
 .date-field-container {
     position: relative;
 }
+
+/* Suppress Recharts focus outlines and cursor strokes */
+.recharts-wrapper:focus,
+.recharts-surface:focus,
+.recharts-bar-rectangle:focus,
+.recharts-rectangle:focus {
+    outline: none !important;
+}
+
+.recharts-tooltip-cursor,
+.recharts-bar-cursor,
+.recharts-cursor,
+.recharts-bar-rectangle path,
+.recharts-rectangle path {
+    stroke: none !important;
+    stroke-width: 0 !important;
+    stroke-opacity: 0 !important;
+}
