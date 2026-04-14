@@ -1,9 +1,13 @@
 
 export const formatDuration = (totalSeconds: number): string => {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  const isNegative = totalSeconds < 0;
+  const absSeconds = Math.abs(totalSeconds);
+  const h = Math.floor(absSeconds / 3600);
+  const m = Math.floor((absSeconds % 3600) / 60);
+  
+  const sign = isNegative ? '-' : '';
+  if (h > 0) return `${sign}${h}h ${m}m`;
+  return `${sign}${m}m`;
 };
 
 export const formatTimer = (totalSeconds: number): string => {
