@@ -59,17 +59,19 @@ const AuthView: React.FC = () => {
     try {
       if (overrideName === 'Demo User') {
         // Anonymous Demo Flow (No email required, no bounces)
+        sessionStorage.setItem('is_demo_mode', 'true');
         const { data, error: authError } = await supabase.auth.signInAnonymously();
-        if (authError) throw authError;
+        if (authError) {
+          sessionStorage.removeItem('is_demo_mode');
+          throw authError;
+        }
         
         if (data.user) {
           console.log("Anonymous login successful, seeding demo data...");
-          sessionStorage.setItem('is_demo_mode', 'true');
           // Call the RPC to populate 5 months of history for this new anonymous user
           const { error: rpcError } = await supabase.rpc('seed_demo_data');
           if (rpcError) {
             console.error("Seeding error:", rpcError);
-            // Even if seeding fails, we let them in
           }
         }
       } else {

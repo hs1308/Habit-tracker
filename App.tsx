@@ -25,6 +25,7 @@ const App: React.FC = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true); // Auth loading
   const [isInitialLoad, setIsInitialLoad] = useState(true); // Data loading
+  const [isSeeding, setIsSeeding] = useState(sessionStorage.getItem('is_demo_mode') === 'true'); // Demo seeding state
   const [habits, setHabits] = useState<Habit[]>([]);
   const [logs, setLogs] = useState<HabitLog[]>([]);
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
@@ -107,6 +108,36 @@ const App: React.FC = () => {
       };
     }
   }, [session]);
+
+  // Auto-seed demo data if missing
+  useEffect(() => {
+    const checkAndSeed = async () => {
+      const isDemoMode = sessionStorage.getItem('is_demo_mode') === 'true' || profile?.full_name === 'Demo User';
+      
+      if (session?.user && isDemoMode && !isInitialLoad && habits.length === 0 && !isSeeding && supabase) {
+        console.log("Demo user detected, waiting for DB to settle...");
+        setIsSeeding(true);
+        
+        // Wait 2.5 seconds for Auth user to propagate to DB (increased for preview mode)
+        await new Promise(resolve => setTimeout(resolve, 2500));
+        
+        try {
+          const { error } = await supabase.rpc('seed_demo_data');
+          if (error) {
+            console.error("Auto-seed error:", error);
+          } else {
+            console.log("Auto-seed successful, refreshing data...");
+            await Promise.all([fetchUserData(), fetchSocialData(), fetchProfile()]);
+          }
+        } catch (err) {
+          console.error("Auto-seed exception:", err);
+        } finally {
+          setIsSeeding(false);
+        }
+      }
+    };
+    checkAndSeed();
+  }, [session, habits.length, isInitialLoad, profile?.full_name, isSeeding]);
 
   // CRITICAL: Only pull notepad content from profile ONCE on login/load.
   // This prevents local typing from being overwritten by database refreshes.
@@ -532,11 +563,13 @@ const App: React.FC = () => {
 
   if (!session) return <AuthView />;
 
-  if (isInitialLoad) return (
+  if (isInitialLoad || isSeeding) return (
     <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
         <div className="w-10 h-10 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Restoring Context</p>
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+          {isSeeding ? 'Generating Demo Universe' : 'Restoring Context'}
+        </p>
       </div>
     </div>
   );

@@ -472,7 +472,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       </div>
 
       {viewMode === 'week' && (
-        <div className="h-48 w-full">
+        <div className="h-48 w-full min-h-[192px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart 
               data={weekChartData} 
@@ -543,7 +543,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({
       )}
 
       {viewMode === 'more' && (
-        <div className="h-48 w-full">
+        <div className="h-48 w-full min-h-[192px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart 
               data={trendChartData} 
